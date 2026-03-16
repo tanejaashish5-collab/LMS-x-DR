@@ -104,7 +104,17 @@
 - Real-time cash flow forecasting
 - Client payment reliability scoring
 
-**Revenue**: $99-299/month. Saves $39,406/year = **131-398x ROI**
+**The Emotional Angle Nobody Talks About:**
+- **60% of founders avoid confronting customers** about late bills for fear of damaging the relationship (Reddit/forums)
+- **73% of SMBs** saw customer delinquency increase over the past year
+- 53.4% spend **4+ hours/week** on AR tasks. 15 days/year just chasing payments.
+- The real product isn't invoice automation — **it's a diplomatic AI that handles the most uncomfortable part of business**
+
+> *"One missed week turns into a missed month. Then before you know it, you're staring at a pile of receipts, unentered invoices, and unanswered questions from your tax preparer."* — Reddit r/smallbusiness
+
+**Revenue**: $49-149/month. Saves $39,406/year = **263-804x ROI**. Performance tier: 1-2% of recovered invoices (vs collection agencies at 25-50%).
+
+**Sources**: QuickBooks 2025, Atradius 2024, Kaplan Group, Gusto 2024, Federal Reserve, Clockify, InvoPilot, Old National Bank
 
 ---
 
@@ -156,7 +166,15 @@
 
 **Market**: $657-750B TAM (Angi). ServiceTitan IPO'd at ~$9.5B. Jobber: $100M+ ARR. **AI-native version for the underserved 90% = wide open.**
 
-**Sources**: Angi, IBISWorld, MarketsandMarkets, G2, ContractorPlus
+**Additional Pain Points (Reddit/forums):**
+- Contractors spend **5-8 hours/week on quoting alone**
+- ServiceTitan explicitly says it's **"not optimized for companies with 3 or fewer technicians"**
+- Average contractor uses **<30% of ServiceTitan's features** while paying 100% of the price
+- **2.6 million worker deficit** across service sectors — every contractor must be more productive
+
+> *"If you're an electrician still writing quotes on notepads, typing them into Excel, or texting a number to the customer and hoping for the best, you're not alone. But you are leaving money on the table."* — Industry forum
+
+**Sources**: Angi, IBISWorld, MarketsandMarkets, G2, ContractorPlus, FieldCamp, MyQuoteIQ, BDR 2026
 
 ---
 
@@ -354,7 +372,30 @@ AI bookkeeping isn't competing with humans — it's **filling a void humans aban
 
 ---
 
-## SLIDE 17: The Picks and Shovels — Agent Building Infrastructure
+## SLIDE 17: BONUS — AI Reputation & Review Autopilot
+
+### 88% of Consumers Choose Businesses That Respond to All Reviews. Most Can't Keep Up.
+
+- 88% likely to use a business that responds to all reviews vs 47% for non-responders
+- 89% of US shoppers read reviews before purchasing (up from 85% in 2023)
+- 53% expect a response within 7 days; one-third expect 3 days
+- **62.6% of SMBs still manage reviews manually** on native platforms
+- Harvard Business School: 1-star increase on Yelp = **5-9% revenue increase**
+
+**What Exists vs What's Needed:**
+- Birdeye/Podium: $299-500+/month (enterprise)
+- Native platforms: manual, no cross-platform, no AI
+- **Gap: $49-149/month AI review manager** that drafts brand-voice responses, detects sentiment trends, and auto-requests reviews from happy customers
+
+> *"Reviews are a game you have to play... more than likely, the owners are reading every single review."* — Charles Kachadoorian, small business co-owner (NPR 2026)
+
+**Market**: ORM market $6.88B (2025) → $12.57B by 2030. 30M local businesses.
+
+**Sources**: Vendasta, NPR 2026, Mordor Intelligence, Verified Market Research, Harvard Business School
+
+---
+
+## SLIDE 18: The Picks and Shovels — Agent Building Infrastructure
 
 ### The "ThemeForest for AI Agents" Opportunity
 
@@ -560,4 +601,26 @@ The winning products won't mention AI. They'll say:
 
 ---
 
-*Research compiled from 5 parallel deep-research agents analyzing: social media complaints, review mining, industry reports, AI capability gaps, and operational failure data. All statistics verified against original sources. March 2026.*
+### Social Media & Review Mining Sources
+63. QuickBooks Community. "Live Bookkeeping Complaints." quickbooks.intuit.com
+64. NPR (2026). "Every Business Wants Your Review." npr.org
+65. Vendasta. "Reputation Management for Small Businesses 2026." vendasta.com
+66. NerdWallet. "QuickBooks Online Review 2025." nerdwallet.com
+67. ThryveDigest. "QuickBooks Alternatives 2026." thryvedigest.com
+68. U.S. Chamber. "Regulatory Compliance Impact." uschamber.com
+69. Paychex. "2026 Top Regulatory Issues." paychex.com
+70. InvoPilot. "50+ Late Invoice Statistics." invopilot.com
+71. Old National Bank. "Unpaid Invoices Squeezing Small Businesses." oldnational.com
+72. Bean Ninjas. "Top 7 Bookkeeping Frustrations." beanninjas.com
+73. FieldCamp. "ServiceTitan Review 2026." fieldcamp.ai
+74. MyQuoteIQ. "ServiceTitan Pricing 2026." myquoteiq.com
+75. SBE Council. "U.S. Small Business Profiles 2025." sbecouncil.org
+76. Carry. "Freelancing Statistics 2026." carry.com
+77. Grand View Research. "AR Automation Market." grandviewresearch.com
+78. Market Growth Reports. "Home Services Management Software." marketgrowthreports.com
+79. IMARC Group. "RegTech Market Size 2034." imarcgroup.com
+80. Verified Market Research. "U.S. Home Service Market." verifiedmarketresearch.com
+
+---
+
+*Research compiled from 5 parallel deep-research agents analyzing: Facebook/Reddit complaints, YouTube/review mining, industry reports, AI capability gaps, and operational failure data. All statistics verified against original sources. March 2026.*
