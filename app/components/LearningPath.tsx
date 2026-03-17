@@ -12,9 +12,25 @@ interface LearningModule {
 }
 
 interface LearningPathProps {
-  opportunityId: string;
+  opportunityId: number;
   opportunityName: string;
 }
+
+// Map numeric IDs to path keys
+const idToPathKey: Record<number, string> = {
+  1: "home-services",
+  2: "ar-collections",
+  3: "healthcare-claims",
+  4: "client-intake",
+  5: "mfg-compliance",
+  6: "review-autopilot",
+  7: "knowledge-capture",
+  8: "bookkeeping",
+  9: "legal-ops",
+  10: "restaurant-ops",
+  11: "trade-compliance",
+  12: "ai-agency",
+};
 
 const learningPaths: Record<string, LearningModule[]> = {
   "home-services": [
@@ -69,7 +85,8 @@ export default function LearningPath({ opportunityId, opportunityName }: Learnin
   const [expandedModules, setExpandedModules] = useState<Set<string>>(new Set());
   const [completedModules, setCompletedModules] = useState<Set<string>>(new Set());
 
-  const modules = learningPaths[opportunityId] || [];
+  const pathKey = idToPathKey[opportunityId];
+  const modules = pathKey ? learningPaths[pathKey] || [] : [];
   const progress = modules.length > 0 ? (completedModules.size / modules.length) * 100 : 0;
 
   const toggleModule = (moduleId: string) => {
