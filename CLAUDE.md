@@ -1,7 +1,8 @@
-# FVS-Dash-Claude
+# LMS-x-DR
 
 ## Project Overview
-FVS-Dash-Claude — AI-powered autonomous business platform.
+LMS-x-DR — AI-Powered Learning Management System × Demand Radar Platform.
+Intelligent business opportunity analysis with structured learning paths and market demand tracking.
 
 ## Tech Stack
 - Frontend: Next.js 15 (App Router) + Tailwind + shadcn/ui
