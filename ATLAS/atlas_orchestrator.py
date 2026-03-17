@@ -45,12 +45,19 @@ logging.basicConfig(
 logger = logging.getLogger('ATLAS-ORCHESTRATOR')
 
 # Initialize Supabase
-SUPABASE_URL = os.getenv('SUPABASE_URL', 'https://yozmayslzckaczdfohll.supabase.co')
+SUPABASE_URL = os.getenv('SUPABASE_URL')
 SUPABASE_KEY = os.getenv('SUPABASE_ANON_KEY')
+
+if not SUPABASE_URL or not SUPABASE_KEY:
+    raise ValueError("SUPABASE_URL and SUPABASE_ANON_KEY environment variables are required")
+
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # Initialize Claude
 ANTHROPIC_KEY = os.getenv('ANTHROPIC_API_KEY')
+if not ANTHROPIC_KEY:
+    raise ValueError("ANTHROPIC_API_KEY environment variable is required")
+
 claude = Anthropic(api_key=ANTHROPIC_KEY)
 
 # FastAPI app

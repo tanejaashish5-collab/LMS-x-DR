@@ -34,8 +34,8 @@ from dotenv import load_dotenv
 load_dotenv('/Users/ashishtaneja/Desktop/Business Opp/ATLAS/config/.env')
 
 # Initialize clients
-SUPABASE_URL = os.getenv('SUPABASE_URL', 'https://yozmayslzckaczdfohll.supabase.co')
-SUPABASE_KEY = os.getenv('SUPABASE_ANON_KEY', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlvem1heXNsemNrYWN6ZGZvaGxsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2OTgzNTAsImV4cCI6MjA4OTI3NDM1MH0.uQd-f3nH6DBWz3g8lFftsA9Ql37TxE5zxMkMUbAQX0M')
+SUPABASE_URL = os.getenv('SUPABASE_URL')
+SUPABASE_KEY = os.getenv('SUPABASE_ANON_KEY')
 ANTHROPIC_KEY = os.getenv('ANTHROPIC_API_KEY')
 
 if not ANTHROPIC_KEY:

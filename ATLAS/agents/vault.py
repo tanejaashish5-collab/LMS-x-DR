@@ -77,14 +77,11 @@ class VAULTAgent:
             limits: Custom budget limits (defaults to standard limits)
         """
         # Initialize Supabase client
-        self.supabase_url = supabase_url or os.getenv(
-            'SUPABASE_URL',
-            'https://yozmayslzckaczdfohll.supabase.co'
-        )
-        self.supabase_key = supabase_key or os.getenv(
-            'SUPABASE_ANON_KEY',
-            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlvem1heXNsemNrYWN6ZGZvaGxsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2OTgzNTAsImV4cCI6MjA4OTI3NDM1MH0.uQd-f3nH6DBWz3g8lFftsA9Ql37TxE5zxMkMUbAQX0M'
-        )
+        self.supabase_url = supabase_url or os.getenv('SUPABASE_URL')
+        self.supabase_key = supabase_key or os.getenv('SUPABASE_ANON_KEY')
+
+        if not self.supabase_url or not self.supabase_key:
+            raise ValueError("SUPABASE_URL and SUPABASE_ANON_KEY environment variables are required")
 
         self.supabase: Client = create_client(self.supabase_url, self.supabase_key)
 
