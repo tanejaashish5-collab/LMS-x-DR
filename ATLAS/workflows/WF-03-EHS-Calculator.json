@@ -1,0 +1,359 @@
+{
+  "name": "WF-03: EHS Calculator",
+  "nodes": [
+    {
+      "parameters": {
+        "triggerTimes": {
+          "item": [
+            {
+              "mode": "everyDay",
+              "hour": 5,
+              "minute": 30
+            }
+          ]
+        }
+      },
+      "id": "cron-trigger",
+      "name": "Daily 5:30 AM AEST",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM atlas_experiment_dashboard WHERE status IN ('live', 'measuring', 'scaled');",
+        "additionalFields": {}
+      },
+      "id": "get-experiments",
+      "name": "Get Active Experiments",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [450, 300],
+      "credentials": {
+        "supabaseApi": {
+          "id": "1",
+          "name": "ATLAS Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "id": "loop-experiments",
+      "name": "Loop Each Experiment",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 1,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM atlas_metrics WHERE experiment_id = '{{$json[\"id\"]}}' ORDER BY date DESC LIMIT 7;",
+        "additionalFields": {}
+      },
+      "id": "get-metrics",
+      "name": "Get Last 7 Days Metrics",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [850, 300],
+      "credentials": {
+        "supabaseApi": {
+          "id": "1",
+          "name": "ATLAS Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Calculate Experiment Health Score (EHS)\nconst experiment = $node[\"Loop Each Experiment\"].json;\nconst metrics = $node[\"Get Last 7 Days Metrics\"].json || [];\n\nif (!metrics || metrics.length === 0) {\n  return [{json: {ehs: 0, experiment_id: experiment.id, triggers: []}}];\n}\n\n// Get latest metrics\nconst latestMetrics = metrics[0] || {};\nconst allMetrics = metrics;\n\n// Calculate component scores\nconst calculateTrafficScore = () => {\n  const dailyVisitors = latestMetrics.unique_visitors || 0;\n  if (dailyVisitors === 0) return 0;\n  if (dailyVisitors < 10) return 25;\n  if (dailyVisitors < 50) return 50;\n  if (dailyVisitors < 100) return 75;\n  return 100;\n};\n\nconst calculateEngagementScore = () => {\n  const avgTime = latestMetrics.avg_time_on_page || 0;\n  if (avgTime === 0) return 0;\n  if (avgTime < 30) return 25;\n  if (avgTime < 60) return 50;\n  if (avgTime < 120) return 75;\n  return 100;\n};\n\nconst calculateConversionScore = () => {\n  const visitors = latestMetrics.unique_visitors || 0;\n  const conversions = (latestMetrics.signups || 0) + (latestMetrics.purchases || 0);\n  if (visitors === 0 || conversions === 0) return 0;\n  const cvr = (conversions / visitors) * 100;\n  if (cvr < 1) return 25;\n  if (cvr < 2) return 50;\n  if (cvr < 5) return 75;\n  return 100;\n};\n\nconst calculateRoiScore = () => {\n  const spend = experiment.budget_spent || 0;\n  const revenue = experiment.total_revenue || 0;\n  if (spend === 0) return 50;\n  if (revenue === 0) return 0;\n  const roi = revenue / spend;\n  if (roi < 0.5) return 25;\n  if (roi < 1) return 50;\n  if (roi < 2) return 75;\n  return 100;\n};\n\n// Calculate weighted EHS\nconst trafficScore = calculateTrafficScore();\nconst engagementScore = calculateEngagementScore();\nconst conversionScore = calculateConversionScore();\nconst roiScore = calculateRoiScore();\n\nconst ehs = Math.round(\n  trafficScore * 0.20 +\n  engagementScore * 0.25 +\n  conversionScore * 0.30 +\n  roiScore * 0.25\n);\n\n// Check kill triggers\nconst triggers = [];\nconst daysLive = experiment.days_live || 0;\nconst totalVisitors = allMetrics.reduce((sum, m) => sum + (m.unique_visitors || 0), 0);\nconst totalSpend = experiment.budget_spent || 0;\nconst totalRevenue = experiment.total_revenue || 0;\n\n// GHOST TOWN\nif (daysLive >= 7 && totalVisitors < 15 && totalSpend > 10) {\n  triggers.push('GHOST_TOWN');\n}\n\n// LEAKY BUCKET\nif (totalVisitors >= 100 && latestMetrics.signups === 0 && latestMetrics.purchases === 0) {\n  triggers.push('LEAKY_BUCKET');\n}\n\n// BUDGET BLEED\nif (totalSpend >= 50 && totalRevenue < 5) {\n  triggers.push('BUDGET_BLEED');\n}\n\n// EHS FLATLINE (check last 3 days)\nconst last3Days = metrics.slice(0, 3);\nif (last3Days.length === 3 && last3Days.every(m => (m.ehs || 0) < 20)) {\n  triggers.push('EHS_FLATLINE');\n}\n\n// HARD DEADLINE\nif (daysLive >= 14 && ehs < 40) {\n  triggers.push('HARD_DEADLINE');\n}\n\n// Check scale triggers\nconst scaleTriggers = [];\n\n// FIRST REVENUE\nif (totalRevenue > 0 && !experiment.scaled) {\n  scaleTriggers.push('FIRST_REVENUE');\n}\n\n// HIGH CONVERSION\nif (totalVisitors >= 50) {\n  const totalConversions = allMetrics.reduce((sum, m) => sum + (m.signups || 0) + (m.purchases || 0), 0);\n  const cvr = (totalConversions / totalVisitors) * 100;\n  if (cvr >= 5) {\n    scaleTriggers.push('HIGH_CONVERSION');\n  }\n}\n\n// POSITIVE ROI\nif (totalRevenue > totalSpend && totalSpend > 20) {\n  scaleTriggers.push('POSITIVE_ROI');\n}\n\nreturn [{\n  json: {\n    experiment_id: experiment.id,\n    ehs: ehs,\n    traffic_score: trafficScore,\n    engagement_score: engagementScore,\n    conversion_score: conversionScore,\n    roi_score: roiScore,\n    kill_triggers: triggers,\n    scale_triggers: scaleTriggers,\n    days_live: daysLive,\n    total_visitors: totalVisitors,\n    total_spend: totalSpend,\n    total_revenue: totalRevenue\n  }\n}];"
+      },
+      "id": "calculate-ehs",
+      "name": "Calculate EHS",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [1050, 300]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "table": "atlas_experiments",
+        "id": "={{$json[\"experiment_id\"]}}",
+        "columns": "ehs_current,ehs_history",
+        "additionalFields": {}
+      },
+      "id": "update-ehs",
+      "name": "Update EHS",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1250, 300],
+      "credentials": {
+        "supabaseApi": {
+          "id": "1",
+          "name": "ATLAS Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json[\"kill_triggers\"].length > 0}}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "check-kill",
+      "name": "Should Kill?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1450, 300]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "table": "atlas_experiments",
+        "id": "={{$json[\"experiment_id\"]}}",
+        "columns": "status,killed_at,kill_reason",
+        "additionalFields": {
+          "columns": {
+            "values": [
+              {
+                "key": "status",
+                "value": "killed"
+              },
+              {
+                "key": "killed_at",
+                "value": "={{$now.toISO()}}"
+              },
+              {
+                "key": "kill_reason",
+                "value": "={{$json[\"kill_triggers\"][0]}}"
+              }
+            ]
+          }
+        }
+      },
+      "id": "kill-experiment",
+      "name": "Kill Experiment",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1650, 200],
+      "credentials": {
+        "supabaseApi": {
+          "id": "1",
+          "name": "ATLAS Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json[\"scale_triggers\"].length > 0}}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "check-scale",
+      "name": "Should Scale?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1650, 400]
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "table": "atlas_agent_logs",
+        "columns": "agent,action,status,output",
+        "additionalFields": {
+          "columns": {
+            "values": [
+              {
+                "key": "agent",
+                "value": "ARGUS"
+              },
+              {
+                "key": "action",
+                "value": "flag_for_scale"
+              },
+              {
+                "key": "status",
+                "value": "success"
+              },
+              {
+                "key": "output",
+                "value": "={{JSON.stringify($json)}}"
+              }
+            ]
+          }
+        }
+      },
+      "id": "flag-scale",
+      "name": "Flag for ATLAS Review",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1850, 400],
+      "credentials": {
+        "supabaseApi": {
+          "id": "1",
+          "name": "ATLAS Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "continue",
+      "name": "Continue",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [2050, 300]
+    }
+  ],
+  "connections": {
+    "cron-trigger": {
+      "main": [
+        [
+          {
+            "node": "get-experiments",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "get-experiments": {
+      "main": [
+        [
+          {
+            "node": "loop-experiments",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "loop-experiments": {
+      "main": [
+        [
+          {
+            "node": "get-metrics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "get-metrics": {
+      "main": [
+        [
+          {
+            "node": "calculate-ehs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "calculate-ehs": {
+      "main": [
+        [
+          {
+            "node": "update-ehs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "update-ehs": {
+      "main": [
+        [
+          {
+            "node": "check-kill",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "check-kill": {
+      "main": [
+        [
+          {
+            "node": "kill-experiment",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "check-scale",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "kill-experiment": {
+      "main": [
+        [
+          {
+            "node": "continue",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "check-scale": {
+      "main": [
+        [
+          {
+            "node": "flag-scale",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "continue",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "flag-scale": {
+      "main": [
+        [
+          {
+            "node": "continue",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "continue": {
+      "main": [
+        [
+          {
+            "node": "loop-experiments",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "id": "WF-03"
+}

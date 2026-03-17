@@ -1,0 +1,305 @@
+{
+  "name": "WF-02: Metrics Collector",
+  "nodes": [
+    {
+      "parameters": {
+        "triggerTimes": {
+          "item": [
+            {
+              "mode": "everyHour"
+            }
+          ]
+        }
+      },
+      "id": "cron-trigger",
+      "name": "Every Hour",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM atlas_experiments WHERE status IN ('live', 'measuring', 'scaled');",
+        "additionalFields": {}
+      },
+      "id": "get-active-experiments",
+      "name": "Get Active Experiments",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [450, 300],
+      "credentials": {
+        "supabaseApi": {
+          "id": "1",
+          "name": "ATLAS Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "id": "loop-experiments",
+      "name": "Loop Each Experiment",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 1,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json[\"vercel_url\"]}}",
+              "operation": "isNotEmpty"
+            }
+          ]
+        }
+      },
+      "id": "has-vercel",
+      "name": "Has Vercel URL?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [850, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://api.vercel.com/v6/deployments/{{$json[\"vercel_deployment_id\"]}}/events",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{$env.VERCEL_API_TOKEN}}"
+            }
+          ]
+        },
+        "options": {
+          "retry": {
+            "maxTries": 3,
+            "waitBetweenTries": 2000
+          }
+        }
+      },
+      "id": "get-vercel-analytics",
+      "name": "Get Vercel Analytics",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1050, 200],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json[\"stripe_link\"]}}",
+              "operation": "isNotEmpty"
+            }
+          ]
+        }
+      },
+      "id": "has-stripe",
+      "name": "Has Stripe Link?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1050, 400]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://api.stripe.com/v1/payment_links/{{$json[\"stripe_payment_link_id\"]}}/line_items",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendHeaders": true,
+        "options": {
+          "retry": {
+            "maxTries": 3,
+            "waitBetweenTries": 2000
+          }
+        }
+      },
+      "id": "get-stripe-data",
+      "name": "Get Stripe Revenue",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1250, 400],
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "2",
+          "name": "Stripe API"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Compile metrics from various sources\nconst experiment = $node[\"Loop Each Experiment\"].json;\nconst vercelData = $node[\"Get Vercel Analytics\"].json || {};\nconst stripeData = $node[\"Get Stripe Revenue\"].json || {};\n\nconst today = new Date().toISOString().split('T')[0];\n\n// Calculate metrics\nconst metrics = {\n  experiment_id: experiment.id,\n  date: today,\n  page_views: vercelData.pageViews || 0,\n  unique_visitors: vercelData.uniqueVisitors || 0,\n  avg_time_on_page: vercelData.avgTimeOnPage || 0,\n  signups: 0, // Would need form integration\n  purchases: stripeData.purchases || 0,\n  revenue: stripeData.totalRevenue || 0,\n  ad_spend: experiment.daily_ad_spend || 0,\n  organic_visits: Math.floor((vercelData.uniqueVisitors || 0) * 0.3),\n  paid_visits: Math.floor((vercelData.uniqueVisitors || 0) * 0.7),\n  emails_sent: 0,\n  emails_opened: 0,\n  email_clicks: 0,\n  reddit_posts: 0,\n  reddit_upvotes: 0\n};\n\n// Calculate EHS (will be done properly in WF-03)\nmetrics.ehs = 0;\n\nreturn [{json: metrics}];"
+      },
+      "id": "compile-metrics",
+      "name": "Compile Metrics",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [1450, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO atlas_metrics (experiment_id, date, page_views, unique_visitors, avg_time_on_page, signups, purchases, revenue, ad_spend, organic_visits, paid_visits, ehs) VALUES ('{{$json[\"experiment_id\"]}}', '{{$json[\"date\"]}}', {{$json[\"page_views\"]}}, {{$json[\"unique_visitors\"]}}, {{$json[\"avg_time_on_page\"]}}, {{$json[\"signups\"]}}, {{$json[\"purchases\"]}}, {{$json[\"revenue\"]}}, {{$json[\"ad_spend\"]}}, {{$json[\"organic_visits\"]}}, {{$json[\"paid_visits\"]}}, {{$json[\"ehs\"]}}) ON CONFLICT (experiment_id, date) DO UPDATE SET page_views = EXCLUDED.page_views, unique_visitors = EXCLUDED.unique_visitors, avg_time_on_page = EXCLUDED.avg_time_on_page, signups = EXCLUDED.signups, purchases = EXCLUDED.purchases, revenue = EXCLUDED.revenue, ad_spend = EXCLUDED.ad_spend, organic_visits = EXCLUDED.organic_visits, paid_visits = EXCLUDED.paid_visits;",
+        "additionalFields": {}
+      },
+      "id": "upsert-metrics",
+      "name": "Upsert Metrics",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1650, 300],
+      "credentials": {
+        "supabaseApi": {
+          "id": "1",
+          "name": "ATLAS Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "continue-loop",
+      "name": "Continue Loop",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [1850, 300]
+    }
+  ],
+  "connections": {
+    "cron-trigger": {
+      "main": [
+        [
+          {
+            "node": "get-active-experiments",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "get-active-experiments": {
+      "main": [
+        [
+          {
+            "node": "loop-experiments",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "loop-experiments": {
+      "main": [
+        [
+          {
+            "node": "has-vercel",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "has-vercel": {
+      "main": [
+        [
+          {
+            "node": "get-vercel-analytics",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "has-stripe",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "get-vercel-analytics": {
+      "main": [
+        [
+          {
+            "node": "has-stripe",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "has-stripe": {
+      "main": [
+        [
+          {
+            "node": "get-stripe-data",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "compile-metrics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "get-stripe-data": {
+      "main": [
+        [
+          {
+            "node": "compile-metrics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "compile-metrics": {
+      "main": [
+        [
+          {
+            "node": "upsert-metrics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "upsert-metrics": {
+      "main": [
+        [
+          {
+            "node": "continue-loop",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "continue-loop": {
+      "main": [
+        [
+          {
+            "node": "loop-experiments",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "id": "WF-02"
+}

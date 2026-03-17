@@ -1,3 +1,34 @@
+# CRITICAL SECURITY - NEVER COMMIT CREDENTIALS
+# ATLAS Project Sensitive Files
+ATLAS/config/.env
+ATLAS/**/*.env
+ATLAS/**/*.key
+ATLAS/**/*.pem
+ATLAS/**/credentials/
+ATLAS/**/api_keys/
+
+# Environment Variables - NEVER COMMIT
+.env
+.env.*
+*.env
+**/.env
+
+# API Keys and Secrets
+*api_key*
+*secret*
+*credential*
+*.key
+*.pem
+
+# Supabase Service Keys
+*service_role*
+*jwt_secret*
+
+# n8n Data
+*.n8n
+n8n-data/
+
+# Original entries
 .claude/worktrees/
 node_modules/
 .next/

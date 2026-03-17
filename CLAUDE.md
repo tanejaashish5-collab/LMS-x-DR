@@ -1,63 +1,101 @@
-# LMS-x-DR
+# LMS-x-DR — Learning Management × Demand Radar
+# OS: ~/Desktop/Claude OS/CLAUDE.md | Dashboard: ~/Desktop/CLAUDE.md
+# Load both at session start before any project work.
+
+---
 
 ## Project Overview
-LMS-x-DR — AI-Powered Learning Management System × Demand Radar Platform.
-Intelligent business opportunity analysis with structured learning paths and market demand tracking.
+AI-powered platform combining business opportunity analysis with structured learning paths and market demand tracking.
+
+## Current State
+- **Frontend**: Next.js 15 + TypeScript + Tailwind CSS v4
+- **Deployment**: Live on Vercel at https://lms-x-dr.vercel.app
+- **Features Implemented**:
+  - 12 AI-analyzed business opportunities with scoring
+  - Interactive learning paths with progress tracking
+  - Responsive dark theme UI
+  - Module completion tracking
+  - Difficulty levels (Beginner/Intermediate/Advanced)
 
 ## Tech Stack
-- Frontend: Next.js 15 (App Router) + Tailwind + shadcn/ui
-- Backend: Next.js API Routes + Supabase
-- Database: Supabase (Postgres)
-- Payments: Stripe
-- AI: Claude API (Anthropic)
-- Hosting: Vercel
+- **Frontend**: Next.js 15 (App Router) + TypeScript
+- **Styling**: Tailwind CSS v4 + Custom CSS variables
+- **Data**: Static JSON (no database yet)
+- **Hosting**: Vercel (auto-deploy on push)
+- **Version Control**: GitHub (tanejaashish5-collab/LMS-x-DR)
 
-## Key Conventions
-- Clean, readable code with meaningful names
-- Functions < 50 lines, nesting < 4 levels
-- All APIs have error handling + input validation
-- No hardcoded secrets — env vars only
-- Test coverage: 80%+
-- Security: see `.claude/rules/security/`
+## Project Structure
+```
+app/
+├── page.tsx                 # Main opportunity dashboard
+├── layout.tsx              # App layout with metadata
+├── globals.css             # Tailwind + custom styles
+├── components/
+│   └── LearningPath.tsx   # Learning modules component
+└── data/
+    └── opportunities.ts    # Static opportunity data
+```
+
+## Next Phase Priorities
+1. **Demand Radar Visualization**
+   - Real-time market demand indicators
+   - Trend analysis charts
+   - Opportunity heat maps
+
+2. **AI Agent Integration**
+   - Use 9 configured agents for analysis
+   - Personalized opportunity recommendations
+   - Dynamic learning path generation
+
+3. **User Features**
+   - Progress persistence (localStorage → Supabase)
+   - User profiles and authentication
+   - Certificate generation on completion
+
+4. **Content Expansion**
+   - Complete learning paths for all 12 opportunities
+   - Add video resources and external links
+   - Community discussion features
+
+## Technical Resources (Shared from Claude OS)
+Now using centralized resources from `~/Desktop/Claude OS/`:
+- **Technical Agents**: `~/Desktop/Claude OS/agents/technical/`
+  - architect, code-reviewer, security-reviewer, tdd-guide
+  - build-error-resolver, research-agent, fullstack-builder
+  - automation-architect, planner
+- **Skills**: `~/Desktop/Claude OS/skills/`
+  - multi-agent, memory-management, spec-driven-dev
+  - design-review, continuous-learning, plan, tdd
+  - code-review, security-scan
+- **Rules**: `~/Desktop/Claude OS/rules/`
+  - security, typescript, python, common standards
 
 ## Development Workflow
-1. Spec first → `.claude/skills/spec-driven-dev.md`
-2. Plan → `/plan` or Planner agent
-3. Build with TDD → `/tdd`
-4. Review → `/code-review`
-5. Security → `/security-scan`
-6. Design review → `.claude/skills/design-review.md`
+1. Plan features using `/plan` or Planner agent
+2. Build with clean, readable code (functions < 50 lines)
+3. Review with `/code-review`
+4. Deploy via git push (auto-deploys to Vercel)
 
-## Memory System
-- Session context: `.claude/memory/session-context.md`
-- Learnings: `.claude/memory/learnings.md`
-- Decisions: `.claude/memory/decisions.md`
-- Attention tiers: HOT (full load) / WARM (headers) / COLD (reference)
+## Key URLs
+- **Live Site**: https://lms-x-dr.vercel.app
+- **GitHub**: https://github.com/tanejaashish5-collab/LMS-x-DR
+- **Local Dev**: http://localhost:3000
 
-## Agents (9 specialists, separate context)
-- `planner.md` — Feature planning
-- `architect.md` — System design
-- `code-reviewer.md` — Code review
-- `security-reviewer.md` — Security audit
-- `tdd-guide.md` — Test-driven development
-- `build-error-resolver.md` — Fix build errors
-- `research-agent.md` — Market & tech research
-- `fullstack-builder.md` — Rapid MVP building
-- `automation-architect.md` — Autonomous pipeline design
+## Commands
+```bash
+npm install     # Install dependencies
+npm run dev     # Start dev server
+npm run build   # Build for production
+git push        # Auto-deploys to Vercel
+```
 
-## Skills (8 workflows, on-demand)
-- `plan.md` / `tdd.md` / `code-review.md` / `security-scan.md`
-- `spec-driven-dev.md` — Spec → Design → Build
-- `multi-agent.md` — Parallel agent orchestration
-- `design-review.md` — Visual UI/UX review
-- `memory-management.md` — Context & attention tiers
-- `continuous-learning.md` — Pattern extraction
+## Notes
+- No database integration yet (using static data)
+- No user authentication (public access only)
+- Learning paths only available for 2 opportunities (home-services, ar-collections)
+- CSS variables properly configured for dark theme
+- Viewport meta tag added for mobile responsiveness
 
-## Rules
-- `rules/security/` — Deny rules, injection protection, sandbox
-- `rules/common/` — Coding + testing standards
-- `rules/typescript/` — TS-specific
-- `rules/python/` — Python-specific
+---
 
-## MCP Servers (see `.claude/mcp-configs/`)
-- GitHub, Playwright, DBHub, Context7, Memory, Stripe, Supabase, Vercel
+*Last Updated: 2026-03-17*

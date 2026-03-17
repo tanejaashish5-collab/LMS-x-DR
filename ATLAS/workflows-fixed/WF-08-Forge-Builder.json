@@ -1,0 +1,577 @@
+{
+  "name": "WF-08: Forge Builder (FORGE)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "forge-builder",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        250,
+        300
+      ],
+      "webhookId": "forge-builder"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract opportunity data from webhook\nconst payload = $input.first().json;\nconst decisions = payload.decisions || [payload];\n\n// Process each launch decision\nconst opportunities = [];\n\nfor (const decision of decisions) {\n  if (decision.opportunity_id) {\n    opportunities.push({\n      opportunity_id: decision.opportunity_id,\n      experiment_name: decision.experiment_name || 'Unnamed Experiment',\n      vertical: decision.vertical || 'general',\n      target_audience: decision.target_audience || 'businesses',\n      value_prop: decision.value_prop || 'Save time and money with automation',\n      pricing: decision.pricing || '$297/mo',\n      buildType: decision.buildType || 'landing_page'\n    });\n  }\n}\n\nif (opportunities.length === 0) {\n  throw new Error('No valid opportunities found in webhook payload');\n}\n\nreturn opportunities;"
+      },
+      "id": "parse-payload",
+      "name": "Parse Launch Decisions",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        450,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "each"
+      },
+      "id": "split-batch",
+      "name": "Process Each Opportunity",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 2,
+      "position": [
+        650,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "url": "http://localhost:5678/webhook/budget-check",
+        "options": {
+          "bodyContentType": "json"
+        },
+        "bodyParametersJson": "={{ JSON.stringify({\n  amount: 20,\n  type: 'vercel_hosting',\n  experiment_id: $json.opportunity_id,\n  agent: 'FORGE',\n  description: 'Vercel hosting for landing page'\n}) }}"
+      },
+      "id": "budget-check",
+      "name": "Check Budget with VAULT",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        850,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.approved }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "budget-approved",
+      "name": "Budget Approved?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        1050,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "tableName": "atlas_experiments",
+        "dataToSend": "defineBelow",
+        "fieldsToSend": {
+          "values": [
+            {
+              "field": "id",
+              "value": "={{ 'exp_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9) }}"
+            },
+            {
+              "field": "opportunity_id",
+              "value": "={{ $('split-batch').item.json.opportunity_id }}"
+            },
+            {
+              "field": "name",
+              "value": "={{ $('split-batch').item.json.experiment_name }}"
+            },
+            {
+              "field": "type",
+              "value": "={{ $('split-batch').item.json.buildType }}"
+            },
+            {
+              "field": "status",
+              "value": "building"
+            },
+            {
+              "field": "hypothesis",
+              "value": "={{ 'Landing page for ' + $('split-batch').item.json.vertical + ' targeting ' + $('split-batch').item.json.target_audience }}"
+            },
+            {
+              "field": "budget_allocated",
+              "value": 50
+            },
+            {
+              "field": "budget_spent",
+              "value": 0
+            }
+          ]
+        },
+        "table": "atlas_experiments",
+        "columns": "experiment_id,opportunity_id,name,vertical,status,budget_allocated,started_at"
+      },
+      "id": "create-experiment",
+      "name": "Create Experiment Record",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1250,
+        200
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "{{credentialId}}",
+          "name": "ATLAS Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "anthropicApi",
+        "model": "claude-3-5-sonnet-20241022",
+        "messages": {
+          "values": [
+            {
+              "content": "You are FORGE, the landing page builder for ATLAS autonomous business system.\n\nCreate a high-converting landing page for this opportunity:\n- Vertical: {{ $('split-batch').item.json.vertical }}\n- Target Audience: {{ $('split-batch').item.json.target_audience }}\n- Value Proposition: {{ $('split-batch').item.json.value_prop }}\n- Pricing: {{ $('split-batch').item.json.pricing }}\n\nGenerate a complete, single-file HTML landing page with:\n1. Hero section with clear value prop\n2. Problem/solution section\n3. Features (3-4 key benefits)\n4. Simple pricing\n5. Email capture form\n6. Professional dark theme with gold accents (#C8A84E)\n7. Mobile responsive\n8. Inline CSS and JavaScript\n9. Form should POST to /api/capture-lead\n\nOutput ONLY the complete HTML code, no explanations."
+            }
+          ]
+        },
+        "options": {
+          "maxTokensToSample": 4096,
+          "temperature": 0.7
+        }
+      },
+      "id": "generate-landing",
+      "name": "Generate Landing Page (Sonnet)",
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1,
+      "position": [
+        1450,
+        200
+      ],
+      "credentials": {
+        "anthropicApi": {
+          "id": "{{credentialId}}",
+          "name": "ATLAS Claude API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract HTML from Sonnet response\nconst response = $input.first().json;\nlet html = '';\n\nif (response.output) {\n  html = response.output;\n} else if (response.content) {\n  html = response.content;\n} else if (response.text) {\n  html = response.text;\n}\n\n// Clean up the HTML (remove markdown if present)\nhtml = html.replace(/```html\\n?/g, '').replace(/```\\n?/g, '');\n\n// Add tracking script\nconst trackingScript = `\n<script>\n  // Track page views\n  fetch('/api/track', {\n    method: 'POST',\n    headers: { 'Content-Type': 'application/json' },\n    body: JSON.stringify({\n      experiment_id: '${$('create-experiment').item.json.id}',\n      event: 'page_view',\n      timestamp: new Date().toISOString()\n    })\n  });\n</script>\n</body>`;\n\n// Insert tracking before closing body tag\nhtml = html.replace('</body>', trackingScript);\n\nreturn [{\n  json: {\n    html,\n    experiment_id: $('create-experiment').item.json.id,\n    filename: `${$('split-batch').item.json.vertical.toLowerCase().replace(/\\s+/g, '-')}-automation.html`\n  }\n}];"
+      },
+      "id": "process-html",
+      "name": "Process HTML & Add Tracking",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1650,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "binaryPropertyName": "file",
+        "fileName": "={{ $json.filename }}",
+        "fileContent": "={{ $json.html }}"
+      },
+      "id": "create-file",
+      "name": "Create HTML File",
+      "type": "n8n-nodes-base.moveBinaryData",
+      "typeVersion": 1,
+      "position": [
+        1850,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "url": "https://api.vercel.com/v13/deployments",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "bodyContentType": "json"
+        },
+        "headerParametersJson": "={{ JSON.stringify({ 'Authorization': 'Bearer ' + $env.VERCEL_API_TOKEN }) }}",
+        "bodyParametersJson": "={{ JSON.stringify({\n  name: $json.filename.replace('.html', ''),\n  files: [\n    {\n      file: 'index.html',\n      data: Buffer.from($json.html).toString('base64'),\n      encoding: 'base64'\n    }\n  ],\n  projectSettings: {\n    framework: null\n  },\n  target: 'production'\n}) }}"
+      },
+      "id": "deploy-vercel",
+      "name": "Deploy to Vercel",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        2050,
+        200
+      ],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.error }}",
+              "operation": "isEmpty"
+            }
+          ]
+        }
+      },
+      "id": "deploy-success",
+      "name": "Deploy Successful?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        2250,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE atlas_experiments\nSET status = 'active',\n    landing_page_url = '{{ $json.landing_page_url }}'\nWHERE experiment_id = '{{ $json.experiment_id }}'",
+        "additionalFields": {
+          "queryParams": "={{ $json.url }},{{ $json.id }},{{ $('create-experiment').item.json.id }}"
+        }
+      },
+      "id": "update-live",
+      "name": "Update Experiment - LIVE",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        2450,
+        100
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "{{credentialId}}",
+          "name": "ATLAS Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "url": "http://localhost:5678/webhook/mercury-distribution",
+        "options": {
+          "bodyContentType": "json"
+        },
+        "bodyParametersJson": "={{ JSON.stringify({\n  experiment_id: $('create-experiment').item.json.id,\n  vercel_url: $json.vercel_url,\n  vertical: $('split-batch').item.json.vertical,\n  target_audience: $('split-batch').item.json.target_audience\n}) }}"
+      },
+      "id": "trigger-mercury",
+      "name": "Trigger MERCURY Distribution",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        2650,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE atlas_experiments\nSET status = 'failed',\n    kill_reason = '{{ $json.error_message }}'\nWHERE experiment_id = '{{ $json.experiment_id }}'",
+        "additionalFields": {
+          "queryParams": "={{ 'Vercel deployment failed: ' + ($json.message || $json.error || 'Unknown error') }},{{ $('create-experiment').item.json.id }}"
+        }
+      },
+      "id": "update-failed",
+      "name": "Update Experiment - FAILED",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        2450,
+        300
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "{{credentialId}}",
+          "name": "ATLAS Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "tableName": "atlas_agent_logs",
+        "dataToSend": "defineBelow",
+        "fieldsToSend": {
+          "values": [
+            {
+              "field": "agent",
+              "value": "FORGE"
+            },
+            {
+              "field": "action",
+              "value": "landing_page_built"
+            },
+            {
+              "field": "model_used",
+              "value": "claude-3-5-sonnet"
+            },
+            {
+              "field": "tokens_in",
+              "value": 200
+            },
+            {
+              "field": "tokens_out",
+              "value": 2000
+            },
+            {
+              "field": "cost_usd",
+              "value": 0.024
+            },
+            {
+              "field": "status",
+              "value": "={{ $('deploy-success').item.json ? 'success' : 'failed' }}"
+            },
+            {
+              "field": "details",
+              "value": "={{ JSON.stringify({ experiment_id: $('create-experiment').item.json.id, vercel_url: $json.vercel_url || 'deployment_failed' }) }}"
+            }
+          ]
+        },
+        "table": "atlas_agent_logs",
+        "columns": "agent_name,action_type,details,experiment_id"
+      },
+      "id": "log-activity",
+      "name": "Log FORGE Activity",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        2850,
+        200
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "{{credentialId}}",
+          "name": "ATLAS Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "=",
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({\n  success: true,\n  message: 'FORGE Builder processed successfully',\n  experiments_created: $('split-batch').context.currentRunIndex + 1\n}) }}"
+      },
+      "id": "webhook-response",
+      "name": "Webhook Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        3050,
+        200
+      ]
+    }
+  ],
+  "connections": {
+    "webhook-trigger": {
+      "main": [
+        [
+          {
+            "node": "parse-payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "parse-payload": {
+      "main": [
+        [
+          {
+            "node": "split-batch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "split-batch": {
+      "main": [
+        [],
+        [
+          {
+            "node": "webhook-response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "budget-check": {
+      "main": [
+        [
+          {
+            "node": "budget-approved",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "budget-approved": {
+      "main": [
+        [
+          {
+            "node": "create-experiment",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "split-batch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "create-experiment": {
+      "main": [
+        [
+          {
+            "node": "generate-landing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "generate-landing": {
+      "main": [
+        [
+          {
+            "node": "process-html",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "process-html": {
+      "main": [
+        [
+          {
+            "node": "create-file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "create-file": {
+      "main": [
+        [
+          {
+            "node": "deploy-vercel",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "deploy-vercel": {
+      "main": [
+        [
+          {
+            "node": "deploy-success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "deploy-success": {
+      "main": [
+        [
+          {
+            "node": "update-live",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "update-failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "update-live": {
+      "main": [
+        [
+          {
+            "node": "trigger-mercury",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "trigger-mercury": {
+      "main": [
+        [
+          {
+            "node": "log-activity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "update-failed": {
+      "main": [
+        [
+          {
+            "node": "log-activity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "log-activity": {
+      "main": [
+        [
+          {
+            "node": "split-batch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "timezone": "Australia/Sydney",
+    "saveExecutionProgress": true,
+    "saveManualExecutions": true,
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "executionTimeout": 600
+  },
+  "id": "WF-08-Forge"
+}

@@ -1,0 +1,496 @@
+{
+  "name": "WF-01: SCOUT Pipeline",
+  "nodes": [
+    {
+      "parameters": {
+        "triggerTimes": {
+          "item": [
+            {
+              "mode": "custom",
+              "cronExpression": "0 5 * * 1,3,5"
+            }
+          ]
+        }
+      },
+      "id": "cron-trigger",
+      "name": "Mon/Wed/Fri 5:00 AM AEST",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [250, 400]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.apify.com/v2/acts/trudax~reddit-scraper/runs",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpQueryAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "token",
+              "value": "={{$env.APIFY_API_TOKEN}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "subreddits",
+              "value": "[\"smallbusiness\", \"automation\", \"entrepreneur\", \"zapier\", \"n8n\", \"lawfirm\", \"accounting\", \"agency\", \"bookkeeping\"]"
+            },
+            {
+              "name": "searchKeywords",
+              "value": "[\"automate\", \"manual\", \"workflow\", \"hours wasted\", \"repetitive\", \"spending hours\", \"invoice\", \"review management\", \"client onboarding\"]"
+            },
+            {
+              "name": "maxPostsPerSubreddit",
+              "value": "20"
+            },
+            {
+              "name": "sortBy",
+              "value": "new"
+            },
+            {
+              "name": "timeRange",
+              "value": "week"
+            }
+          ]
+        }
+      },
+      "id": "scrape-reddit",
+      "name": "Scrape Reddit",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.apify.com/v2/acts/lukaskrivka~google-trends-scraper/runs",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpQueryAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "token",
+              "value": "={{$env.APIFY_API_TOKEN}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "queries",
+              "value": "[\"automate google reviews\", \"automate client intake\", \"automate invoice follow up\", \"n8n vs zapier\", \"workflow automation\"]"
+            },
+            {
+              "name": "geo",
+              "value": "AU"
+            },
+            {
+              "name": "timeRange",
+              "value": "now 7-d"
+            }
+          ]
+        }
+      },
+      "id": "scrape-trends",
+      "name": "Scrape Google Trends",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [450, 500]
+    },
+    {
+      "parameters": {},
+      "id": "merge-sources",
+      "name": "Merge Sources",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 2,
+      "position": [650, 400]
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "id": "loop-opportunities",
+      "name": "Loop Each Opportunity",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 1,
+      "position": [850, 400]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "={{$env.ANTHROPIC_API_KEY}}"
+            },
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "claude-3-haiku-20240307"
+            },
+            {
+              "name": "max_tokens",
+              "value": "100"
+            },
+            {
+              "name": "messages",
+              "value": "={{JSON.stringify([{role: 'user', content: 'Is this a real business automation opportunity? Reply YES or NO with a 1-sentence reason. Only YES if a specific business type has a clear automation pain that ForgeVoice could solve. Post: ' + JSON.stringify($json)}])}}"
+            },
+            {
+              "name": "system",
+              "value": "You are a business opportunity filter for ForgeVoice, an AI automation agency. You will receive a scraped post/listing from the internet. Determine if this represents a REAL business automation opportunity — meaning a specific type of business has a clear, buildable automation pain that ForgeVoice could solve with n8n, Supabase, or Claude API. Reply with exactly: YES: [1-sentence reason] or NO: [1-sentence reason]. Only say YES if the pain is specific, the business type is identifiable, and the solution is buildable in 1-2 weeks."
+            }
+          ]
+        }
+      },
+      "id": "haiku-filter",
+      "name": "Haiku Filter",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1050, 400]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json[\"content\"][0][\"text\"]}}",
+              "operation": "startsWith",
+              "value2": "YES"
+            }
+          ]
+        }
+      },
+      "id": "check-filter",
+      "name": "Passed Filter?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1250, 400]
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "table": "atlas_opportunities",
+        "columns": "title,source,source_url,description,category,target_vertical,haiku_filter_pass,status,discovered_at",
+        "additionalFields": {}
+      },
+      "id": "insert-opportunity",
+      "name": "Insert to Supabase",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1450, 300],
+      "credentials": {
+        "supabaseApi": {
+          "id": "1",
+          "name": "ATLAS Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM atlas_opportunities WHERE status = 'haiku_filtered' AND DATE(discovered_at) = CURRENT_DATE ORDER BY discovered_at DESC LIMIT 5;",
+        "additionalFields": {}
+      },
+      "id": "get-top-5",
+      "name": "Get Top 5 for Scoring",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1650, 400],
+      "credentials": {
+        "supabaseApi": {
+          "id": "1",
+          "name": "ATLAS Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "id": "loop-top-5",
+      "name": "Loop Top 5",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 1,
+      "position": [1850, 400]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "={{$env.ANTHROPIC_API_KEY}}"
+            },
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "claude-3-5-sonnet-20241022"
+            },
+            {
+              "name": "max_tokens",
+              "value": "500"
+            },
+            {
+              "name": "messages",
+              "value": "={{JSON.stringify([{role: 'user', content: 'Score this automation opportunity for ForgeVoice on 0-100. Return JSON with detailed analysis. Opportunity: ' + JSON.stringify($json)}])}}"
+            },
+            {
+              "name": "system",
+              "value": "You are a senior business analyst evaluating an automation opportunity for ForgeVoice Studio, an AI automation agency targeting Australian and global SMEs. Score this opportunity on a scale of 0-100 based on: (1) Pain severity — how much does this hurt the business? (2) Buildability — can this be built with n8n + Supabase + Claude API in under 2 weeks? (3) Market size — how many businesses have this exact pain? (4) Competition — are there existing solutions? (5) Price tolerance — would businesses pay $2,000-5,000 to fix this? (6) Template potential — could this be packaged as a reusable template? Return JSON: {score: number, pain_severity: 1-10, buildability: 1-10, market_size: 1-10, competition_level: 'none'|'low'|'moderate'|'high'|'saturated', price_tolerance: 1-10, template_potential: 1-10, reasoning: string, recommended_vertical: string}"
+            }
+          ]
+        }
+      },
+      "id": "sonnet-score",
+      "name": "Sonnet Deep Score",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [2050, 400]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "table": "atlas_opportunities",
+        "id": "={{$json[\"id\"]}}",
+        "columns": "sonnet_score,competition_level,buildability,claude_analysis,status",
+        "additionalFields": {}
+      },
+      "id": "update-score",
+      "name": "Update with Score",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [2250, 400],
+      "credentials": {
+        "supabaseApi": {
+          "id": "1",
+          "name": "ATLAS Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "table": "atlas_agent_logs",
+        "columns": "agent,action,model_used,tokens_in,tokens_out,cost_usd,status",
+        "additionalFields": {
+          "columns": {
+            "values": [
+              {
+                "key": "agent",
+                "value": "SCOUT"
+              },
+              {
+                "key": "action",
+                "value": "opportunity_scan"
+              },
+              {
+                "key": "model_used",
+                "value": "claude-3-haiku + claude-3-5-sonnet"
+              },
+              {
+                "key": "status",
+                "value": "success"
+              }
+            ]
+          }
+        }
+      },
+      "id": "log-run",
+      "name": "Log SCOUT Run",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [2450, 400],
+      "credentials": {
+        "supabaseApi": {
+          "id": "1",
+          "name": "ATLAS Supabase"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "cron-trigger": {
+      "main": [
+        [
+          {
+            "node": "scrape-reddit",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "scrape-trends",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "scrape-reddit": {
+      "main": [
+        [
+          {
+            "node": "merge-sources",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "scrape-trends": {
+      "main": [
+        [
+          {
+            "node": "merge-sources",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "merge-sources": {
+      "main": [
+        [
+          {
+            "node": "loop-opportunities",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "loop-opportunities": {
+      "main": [
+        [
+          {
+            "node": "haiku-filter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "haiku-filter": {
+      "main": [
+        [
+          {
+            "node": "check-filter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "check-filter": {
+      "main": [
+        [
+          {
+            "node": "insert-opportunity",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "loop-opportunities",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "insert-opportunity": {
+      "main": [
+        [
+          {
+            "node": "loop-opportunities",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "get-top-5": {
+      "main": [
+        [
+          {
+            "node": "loop-top-5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "loop-top-5": {
+      "main": [
+        [
+          {
+            "node": "sonnet-score",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "sonnet-score": {
+      "main": [
+        [
+          {
+            "node": "update-score",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "update-score": {
+      "main": [
+        [
+          {
+            "node": "loop-top-5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "id": "WF-01"
+}

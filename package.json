@@ -1,7 +1,7 @@
 {
-  "name": "lms-x-dr",
-  "version": "1.0.0",
-  "description": "AI-Powered Learning Management System × Demand Radar Platform",
+  "name": "forgevoice-studio",
+  "version": "2.0.0",
+  "description": "ForgeVoice Studio - AI Automation Built in 48 Hours. Powered by ATLAS Agent Swarm.",
   "main": "index.js",
   "scripts": {
     "dev": "next dev",

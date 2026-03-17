@@ -1,0 +1,341 @@
+{
+  "name": "WF-04: Budget Guardian (VAULT)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "budget-check",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        250,
+        300
+      ],
+      "webhookId": "vault-budget-guardian"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM atlas_budget_summary\nWHERE month_key = TO_CHAR(NOW(), 'YYYY-MM')",
+        "additionalFields": {}
+      },
+      "id": "get-budget-status",
+      "name": "Get Current Budget Status",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        450,
+        300
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "1",
+          "name": "ATLAS Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{$node[\"Get Current Budget Status\"].json[\"current_balance\"]}}",
+              "operation": "largerEqual",
+              "value2": "={{$node[\"Webhook Trigger\"].json[\"body\"][\"amount\"]}}"
+            }
+          ]
+        }
+      },
+      "id": "check-balance",
+      "name": "Balance Check",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        650,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT COALESCE(SUM(budget_spent), 0) as total_spent\nFROM atlas_experiments\nWHERE experiment_id = '{{ $json.experiment_id }}'",
+        "additionalFields": {}
+      },
+      "id": "check-experiment-spend",
+      "name": "Check Experiment Spend",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        850,
+        200
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "1",
+          "name": "ATLAS Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const currentBalance = $node[\"Get Current Budget Status\"].json[\"current_balance\"];\nconst requestedAmount = $node[\"Webhook Trigger\"].json[\"body\"][\"amount\"];\nconst experimentId = $node[\"Webhook Trigger\"].json[\"body\"][\"experiment_id\"];\nconst experimentSpent = $node[\"Check Experiment Spend\"].json[\"total_spent\"] || 0;\nconst agent = $node[\"Webhook Trigger\"].json[\"body\"][\"agent\"];\nconst description = $node[\"Webhook Trigger\"].json[\"body\"][\"description\"];\nconst totalMonthSpent = $node[\"Get Current Budget Status\"].json[\"total_spent\"] || 0;\n\n// Check all budget rules\nlet approved = true;\nlet blockReason = '';\n\n// Rule 1: Balance check (already done in IF node)\nif (currentBalance < requestedAmount) {\n  approved = false;\n  blockReason = `Insufficient balance: $${currentBalance} < $${requestedAmount}`;\n}\n\n// Rule 2: Experiment cap ($50 max per experiment)\nif (experimentId && (experimentSpent + requestedAmount) > 50) {\n  approved = false;\n  blockReason = `Experiment cap exceeded: $${experimentSpent} + $${requestedAmount} > $50`;\n}\n\n// Rule 3: Conservation mode (80% of monthly budget)\nif (totalMonthSpent > 200) {\n  // Only allow spending for high-performing experiments\n  // This would need an additional query to check EHS\n  // For now, we'll add a flag\n  const conservationMode = true;\n  \n  if (conservationMode) {\n    // Would need to check if experiment EHS > 60\n    // Adding as a TODO for full implementation\n    items[0].json.conservationWarning = true;\n  }\n}\n\nreturn [{\n  json: {\n    approved: approved,\n    blockReason: blockReason,\n    currentBalance: currentBalance,\n    newBalance: approved ? currentBalance - requestedAmount : currentBalance,\n    experimentId: experimentId,\n    experimentSpent: experimentSpent,\n    agent: agent,\n    description: description,\n    requestedAmount: requestedAmount,\n    timestamp: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "apply-budget-rules",
+      "name": "Apply Budget Rules",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        1050,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$node[\"Apply Budget Rules\"].json[\"approved\"]}}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "approved-check",
+      "name": "Approved?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        1250,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "table": "atlas_budget_ledger",
+        "columns": "transaction_type,amount,experiment_id,agent,description,balance_after",
+        "additionalFields": {}
+      },
+      "id": "log-spend",
+      "name": "Log Spend to Ledger",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1450,
+        200
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "1",
+          "name": "ATLAS Supabase"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "table": "atlas_experiments",
+        "columns": "budget_spent",
+        "filters": {
+          "conditions": [
+            {
+              "field": "experiment_id",
+              "operator": "=",
+              "value": "={{ $json.experiment_id }}"
+            }
+          ]
+        },
+        "filterType": "manual"
+      },
+      "id": "update-experiment-spend",
+      "name": "Update Experiment Spend",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1450,
+        100
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "1",
+          "name": "ATLAS Supabase"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "options": {},
+        "responseMode": "lastNode",
+        "responseData": "={{JSON.stringify({status: 'approved', newBalance: $node[\"Apply Budget Rules\"].json[\"newBalance\"], timestamp: $node[\"Apply Budget Rules\"].json[\"timestamp\"]})}}"
+      },
+      "id": "respond-approved",
+      "name": "Respond: Approved",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1650,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "table": "atlas_agent_logs",
+        "columns": "agent_name,action_type,details,experiment_id",
+        "additionalFields": {}
+      },
+      "id": "log-block",
+      "name": "Log Block to Agent Logs",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1450,
+        400
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "1",
+          "name": "ATLAS Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {},
+        "responseMode": "lastNode",
+        "responseData": "={{JSON.stringify({status: 'blocked', reason: $node[\"Apply Budget Rules\"].json[\"blockReason\"], currentBalance: $node[\"Apply Budget Rules\"].json[\"currentBalance\"]})}}"
+      },
+      "id": "respond-blocked",
+      "name": "Respond: Blocked",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1650,
+        400
+      ]
+    }
+  ],
+  "connections": {
+    "webhook-trigger": {
+      "main": [
+        [
+          {
+            "node": "get-budget-status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "get-budget-status": {
+      "main": [
+        [
+          {
+            "node": "check-balance",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "check-balance": {
+      "main": [
+        [
+          {
+            "node": "check-experiment-spend",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "log-block",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "check-experiment-spend": {
+      "main": [
+        [
+          {
+            "node": "apply-budget-rules",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "apply-budget-rules": {
+      "main": [
+        [
+          {
+            "node": "approved-check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "approved-check": {
+      "main": [
+        [
+          {
+            "node": "log-spend",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "update-experiment-spend",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "log-block",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "log-spend": {
+      "main": [
+        [
+          {
+            "node": "respond-approved",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "update-experiment-spend": {
+      "main": [
+        []
+      ]
+    },
+    "log-block": {
+      "main": [
+        [
+          {
+            "node": "respond-blocked",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "id": "WF-04"
+}

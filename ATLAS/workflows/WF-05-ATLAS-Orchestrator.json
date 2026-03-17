@@ -1,0 +1,502 @@
+{
+  "name": "WF-05: ATLAS Orchestrator",
+  "nodes": [
+    {
+      "parameters": {
+        "triggerTimes": {
+          "item": [
+            {
+              "mode": "everyDay",
+              "hour": 7,
+              "minute": 0
+            }
+          ]
+        }
+      },
+      "id": "cron-trigger",
+      "name": "Daily 7:00 AM AEST",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [250, 400]
+    },
+    {
+      "parameters": {},
+      "id": "parallel-queries",
+      "name": "Parallel Data Fetch",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [450, 400]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM atlas_experiment_dashboard;",
+        "additionalFields": {}
+      },
+      "id": "get-experiments",
+      "name": "Get All Experiments",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [650, 200],
+      "credentials": {
+        "supabaseApi": {
+          "id": "1",
+          "name": "ATLAS Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM atlas_budget_summary WHERE month_key = TO_CHAR(CURRENT_DATE, 'YYYY-MM');",
+        "additionalFields": {}
+      },
+      "id": "get-budget",
+      "name": "Get Budget Status",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [650, 300],
+      "credentials": {
+        "supabaseApi": {
+          "id": "1",
+          "name": "ATLAS Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM atlas_opportunities WHERE status = 'sonnet_scored' AND scored_at > CURRENT_DATE - INTERVAL '1 day';",
+        "additionalFields": {}
+      },
+      "id": "get-opportunities",
+      "name": "Get New Opportunities",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [650, 400],
+      "credentials": {
+        "supabaseApi": {
+          "id": "1",
+          "name": "ATLAS Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM atlas_agent_logs WHERE created_at > CURRENT_DATE - INTERVAL '1 day' ORDER BY created_at DESC LIMIT 50;",
+        "additionalFields": {}
+      },
+      "id": "get-logs",
+      "name": "Get Recent Agent Logs",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [650, 500],
+      "credentials": {
+        "supabaseApi": {
+          "id": "1",
+          "name": "ATLAS Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM atlas_metrics WHERE date = CURRENT_DATE - INTERVAL '1 day';",
+        "additionalFields": {}
+      },
+      "id": "get-metrics",
+      "name": "Get Yesterday Metrics",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [650, 600],
+      "credentials": {
+        "supabaseApi": {
+          "id": "1",
+          "name": "ATLAS Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "merge-data",
+      "name": "Merge All Data",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 2,
+      "position": [850, 400],
+      "mode": "combine",
+      "combinationMode": "mergeByPosition"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "={{$env.ANTHROPIC_API_KEY}}"
+            },
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "claude-3-haiku-20240307"
+            },
+            {
+              "name": "max_tokens",
+              "value": "500"
+            },
+            {
+              "name": "messages",
+              "value": "={{JSON.stringify([{role: 'user', content: 'Summarize this data into a concise context block (500 tokens max) for strategic decision making. Data: ' + JSON.stringify($json)}])}}"
+            }
+          ]
+        }
+      },
+      "id": "summarize-data",
+      "name": "Haiku Summarize",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1050, 400]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "={{$env.ANTHROPIC_API_KEY}}"
+            },
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "claude-3-5-sonnet-20241022"
+            },
+            {
+              "name": "max_tokens",
+              "value": "1000"
+            },
+            {
+              "name": "messages",
+              "value": "={{JSON.stringify([{role: 'user', content: 'Make strategic decisions for ForgeVoice ATLAS. Return JSON array of decisions. Context: ' + $node[\"Haiku Summarize\"].json.content[0].text}])}}"
+            },
+            {
+              "name": "system",
+              "value": "You are the CEO of ForgeVoice's autonomous operations. You receive a daily summary of all agent reports. Make strategic decisions. You MUST return a JSON array of decisions. Each decision: {action: 'kill'|'scale'|'maintain'|'launch'|'approve_opportunity'|'reallocate_budget', target_id: string, reason: string, budget_change: number}. Rules: (1) Kill any experiment with EHS < 20 for 3+ days. (2) Scale any experiment that earned revenue. (3) Never approve more than 3 new experiments in one day. (4) Never allocate more than $50 to a single experiment. (5) If budget < 20% remaining, switch to conservation mode — only scale proven winners. (6) Consider ForgeVoice's target verticals when approving opportunities: Review Autopilot, Client Intake, AR Collections, Home Services, Bookkeeping, Legal Ops."
+            }
+          ]
+        }
+      },
+      "id": "strategic-decisions",
+      "name": "Sonnet Strategic Decisions",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1250, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse Sonnet's decisions\nconst sonnetResponse = $node[\"Sonnet Strategic Decisions\"].json.content[0].text;\nlet decisions = [];\n\ntry {\n  // Extract JSON from response\n  const jsonMatch = sonnetResponse.match(/\\[.*\\]/s);\n  if (jsonMatch) {\n    decisions = JSON.parse(jsonMatch[0]);\n  }\n} catch (error) {\n  decisions = [];\n}\n\n// Create briefing content\nconst briefing = {\n  date: new Date().toISOString().split('T')[0],\n  type: 'daily',\n  content: {\n    portfolio_status: {\n      active_experiments: $node[\"Get All Experiments\"].json.filter(e => e.status === 'live').length,\n      total_ehs: Math.round($node[\"Get All Experiments\"].json.reduce((sum, e) => sum + (e.ehs_current || 0), 0) / $node[\"Get All Experiments\"].json.length),\n      budget_remaining: $node[\"Get Budget Status\"].json.current_balance || 0\n    },\n    summary: $node[\"Haiku Summarize\"].json.content[0].text\n  },\n  decisions: decisions,\n  veto_status: 'pending',\n  planned_actions: decisions.map(d => `${d.action}: ${d.target_id}`)\n};\n\nreturn [{json: briefing}];"
+      },
+      "id": "format-briefing",
+      "name": "Format Briefing",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [1450, 400]
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "table": "atlas_briefings",
+        "columns": "date,type,content,decisions,veto_status,planned_actions",
+        "additionalFields": {}
+      },
+      "id": "save-briefing",
+      "name": "Save Briefing",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1650, 400],
+      "credentials": {
+        "supabaseApi": {
+          "id": "1",
+          "name": "ATLAS Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "id": "loop-decisions",
+      "name": "Loop Each Decision",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 1,
+      "position": [1850, 400]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json[\"action\"]}}",
+              "operation": "equals",
+              "value2": "approve_opportunity"
+            }
+          ]
+        }
+      },
+      "id": "check-action",
+      "name": "Check Action Type",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [2050, 400]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "table": "atlas_opportunities",
+        "id": "={{$json[\"target_id\"]}}",
+        "columns": "status",
+        "additionalFields": {
+          "columns": {
+            "values": [
+              {
+                "key": "status",
+                "value": "atlas_approved"
+              }
+            ]
+          }
+        }
+      },
+      "id": "approve-opportunity",
+      "name": "Approve Opportunity",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [2250, 300],
+      "credentials": {
+        "supabaseApi": {
+          "id": "1",
+          "name": "ATLAS Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "workflowId": "WF-06"
+      },
+      "id": "trigger-briefing",
+      "name": "Trigger Briefing Sender",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1,
+      "position": [2050, 600]
+    }
+  ],
+  "connections": {
+    "cron-trigger": {
+      "main": [
+        [
+          {
+            "node": "parallel-queries",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "parallel-queries": {
+      "main": [
+        [
+          {
+            "node": "get-experiments",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "get-budget",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "get-opportunities",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "get-logs",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "get-metrics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "get-experiments": {
+      "main": [
+        [
+          {
+            "node": "merge-data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "get-budget": {
+      "main": [
+        [
+          {
+            "node": "merge-data",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "get-opportunities": {
+      "main": [
+        [
+          {
+            "node": "merge-data",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "get-logs": {
+      "main": [
+        [
+          {
+            "node": "merge-data",
+            "type": "main",
+            "index": 3
+          }
+        ]
+      ]
+    },
+    "get-metrics": {
+      "main": [
+        [
+          {
+            "node": "merge-data",
+            "type": "main",
+            "index": 4
+          }
+        ]
+      ]
+    },
+    "merge-data": {
+      "main": [
+        [
+          {
+            "node": "summarize-data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "summarize-data": {
+      "main": [
+        [
+          {
+            "node": "strategic-decisions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "strategic-decisions": {
+      "main": [
+        [
+          {
+            "node": "format-briefing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "format-briefing": {
+      "main": [
+        [
+          {
+            "node": "save-briefing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "save-briefing": {
+      "main": [
+        [
+          {
+            "node": "loop-decisions",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "trigger-briefing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "loop-decisions": {
+      "main": [
+        [
+          {
+            "node": "check-action",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "check-action": {
+      "main": [
+        [
+          {
+            "node": "approve-opportunity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "id": "WF-05"
+}

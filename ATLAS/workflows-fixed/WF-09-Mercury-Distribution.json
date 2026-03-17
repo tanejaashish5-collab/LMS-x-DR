@@ -1,0 +1,538 @@
+{
+  "name": "WF-09: Mercury Distribution (MERCURY)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "mercury-distribution",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        250,
+        300
+      ],
+      "webhookId": "mercury-distribution"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract experiment data from webhook\nconst payload = $input.first().json;\n\nreturn [{\n  json: {\n    experiment_id: payload.experiment_id,\n    vercel_url: payload.vercel_url,\n    vertical: payload.vertical || 'general',\n    target_audience: payload.target_audience || 'small businesses',\n    value_prop: payload.value_prop || 'Save time with automation',\n    pricing: payload.pricing || '$297/mo'\n  }\n}];"
+      },
+      "id": "parse-payload",
+      "name": "Parse Experiment Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        450,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "url": "http://localhost:5678/webhook/budget-check",
+        "options": {
+          "bodyContentType": "json"
+        },
+        "bodyParametersJson": "={{ JSON.stringify({\n  amount: 5,\n  type: 'meta_ads_daily',\n  experiment_id: $json.experiment_id,\n  agent: 'MERCURY',\n  description: 'Meta ads daily budget ($5/day)'\n}) }}"
+      },
+      "id": "budget-check",
+      "name": "Check Budget for Ads",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        650,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.approved }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "budget-approved",
+      "name": "Budget Approved?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        850,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "anthropicApi",
+        "model": "claude-3-haiku-20240307",
+        "messages": {
+          "values": [
+            {
+              "content": "You are MERCURY, the distribution agent. Create compelling Reddit post and Meta ad copy.\n\nExperiment details:\n- Vertical: {{ $('parse-payload').item.json.vertical }}\n- Target: {{ $('parse-payload').item.json.target_audience }}\n- Value Prop: {{ $('parse-payload').item.json.value_prop }}\n- URL: {{ $('parse-payload').item.json.vercel_url }}\n\nGenerate JSON with:\n{\n  \"reddit_post\": {\n    \"title\": \"attention-grabbing title without being salesy\",\n    \"body\": \"helpful content that naturally mentions the solution (200-300 chars)\",\n    \"subreddit\": \"r/smallbusiness or r/entrepreneur or relevant vertical sub\"\n  },\n  \"meta_ad\": {\n    \"headline\": \"15-25 chars\",\n    \"primary_text\": \"problem-focused hook (90-125 chars)\",\n    \"description\": \"value prop (20-30 chars)\",\n    \"cta_button\": \"LEARN_MORE or SIGN_UP\"\n  }\n}\n\nOutput ONLY valid JSON, no explanations."
+            }
+          ]
+        },
+        "options": {
+          "maxTokensToSample": 1000,
+          "temperature": 0.7
+        }
+      },
+      "id": "generate-content",
+      "name": "Generate Distribution Content (Haiku)",
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1,
+      "position": [
+        1050,
+        200
+      ],
+      "credentials": {
+        "anthropicApi": {
+          "id": "{{credentialId}}",
+          "name": "ATLAS Claude API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse Haiku response\nconst response = $input.first().json;\nlet content;\n\ntry {\n  // Extract JSON from response\n  if (typeof response.output === 'string') {\n    content = JSON.parse(response.output);\n  } else if (typeof response.content === 'string') {\n    content = JSON.parse(response.content);\n  } else if (typeof response.text === 'string') {\n    content = JSON.parse(response.text);\n  } else {\n    content = response;\n  }\n} catch (error) {\n  // Fallback content if parsing fails\n  content = {\n    reddit_post: {\n      title: `How we saved 10 hours/week on ${$('parse-payload').item.json.vertical}`,\n      body: `After struggling with manual processes, we built a simple automation tool. It's been a game-changer for our workflow. Happy to share what we learned. Check it out if you're facing similar issues: ${$('parse-payload').item.json.vercel_url}`,\n      subreddit: 'r/smallbusiness'\n    },\n    meta_ad: {\n      headline: 'Automate Your Workflow',\n      primary_text: `Stop wasting hours on ${$('parse-payload').item.json.vertical} tasks. Our automation tool saves 10+ hours weekly.`,\n      description: 'Free up time to grow',\n      cta_button: 'LEARN_MORE'\n    }\n  };\n}\n\nreturn [{\n  json: {\n    experiment_id: $('parse-payload').item.json.experiment_id,\n    vercel_url: $('parse-payload').item.json.vercel_url,\n    reddit_post: content.reddit_post,\n    meta_ad: content.meta_ad\n  }\n}];"
+      },
+      "id": "process-content",
+      "name": "Process Generated Content",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1250,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://oauth.reddit.com/api/submit",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "httpMethod": "POST",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "sr",
+              "value": "={{ $json.reddit_post.subreddit }}"
+            },
+            {
+              "name": "kind",
+              "value": "self"
+            },
+            {
+              "name": "title",
+              "value": "={{ $json.reddit_post.title }}"
+            },
+            {
+              "name": "text",
+              "value": "={{ $json.reddit_post.body }}"
+            },
+            {
+              "name": "api_type",
+              "value": "json"
+            }
+          ]
+        },
+        "headerParametersJson": "={{ JSON.stringify({ 'User-Agent': 'ATLAS:v1.0', 'Authorization': 'Bearer ' + $env.REDDIT_ACCESS_TOKEN }) }}",
+        "options": {}
+      },
+      "id": "post-reddit",
+      "name": "Post to Reddit",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        1450,
+        100
+      ],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "url": "https://graph.facebook.com/v18.0/act_{{ $env.META_AD_ACCOUNT_ID }}/campaigns",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpQueryAuth",
+        "httpMethod": "POST",
+        "queryParametersJson": "={{ JSON.stringify({ access_token: $env.META_ACCESS_TOKEN }) }}",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "name",
+              "value": "={{ 'ATLAS_' + $json.experiment_id }}"
+            },
+            {
+              "name": "objective",
+              "value": "LINK_CLICKS"
+            },
+            {
+              "name": "status",
+              "value": "PAUSED"
+            },
+            {
+              "name": "special_ad_categories",
+              "value": "[]"
+            },
+            {
+              "name": "daily_budget",
+              "value": "500"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "create-meta-campaign",
+      "name": "Create Meta Campaign",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        1450,
+        300
+      ],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Check distribution results\nconst redditResult = $('post-reddit').item?.json || { error: 'Reddit post failed' };\nconst metaResult = $('create-meta-campaign').item?.json || { error: 'Meta campaign creation failed' };\n\nconst redditSuccess = !redditResult.error;\nconst metaSuccess = metaResult.id ? true : false;\n\nreturn [{\n  json: {\n    experiment_id: $('process-content').item.json.experiment_id,\n    reddit_posted: redditSuccess,\n    reddit_url: redditSuccess ? redditResult.data?.url : null,\n    meta_campaign_created: metaSuccess,\n    meta_campaign_id: metaSuccess ? metaResult.id : null,\n    distribution_status: (redditSuccess || metaSuccess) ? 'partial_success' : 'failed'\n  }\n}];"
+      },
+      "id": "check-results",
+      "name": "Check Distribution Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1650,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE atlas_experiments\nSET status = 'measuring'\nWHERE experiment_id = '{{ $json.experiment_id }}'",
+        "additionalFields": {
+          "queryParams": "={{ $json.meta_campaign_id }},{{ $json.reddit_url }},{{ $json.experiment_id }}"
+        }
+      },
+      "id": "update-experiment",
+      "name": "Update Experiment - MEASURING",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1850,
+        200
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "{{credentialId}}",
+          "name": "ATLAS Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "tableName": "atlas_agent_logs",
+        "dataToSend": "defineBelow",
+        "fieldsToSend": {
+          "values": [
+            {
+              "field": "agent",
+              "value": "MERCURY"
+            },
+            {
+              "field": "action",
+              "value": "distribution_launched"
+            },
+            {
+              "field": "model_used",
+              "value": "claude-3-haiku"
+            },
+            {
+              "field": "tokens_in",
+              "value": 150
+            },
+            {
+              "field": "tokens_out",
+              "value": 200
+            },
+            {
+              "field": "cost_usd",
+              "value": 0.0001
+            },
+            {
+              "field": "status",
+              "value": "={{ $json.distribution_status }}"
+            },
+            {
+              "field": "details",
+              "value": "={{ JSON.stringify($json) }}"
+            }
+          ]
+        },
+        "table": "atlas_agent_logs",
+        "columns": "agent_name,action_type,details,experiment_id"
+      },
+      "id": "log-activity",
+      "name": "Log MERCURY Activity",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        2050,
+        200
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "{{credentialId}}",
+          "name": "ATLAS Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "=",
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({\n  success: true,\n  message: 'MERCURY distribution completed',\n  experiment_id: $json.experiment_id,\n  reddit_posted: $('check-results').item.json.reddit_posted,\n  meta_campaign_created: $('check-results').item.json.meta_campaign_created\n}) }}"
+      },
+      "id": "webhook-response",
+      "name": "Webhook Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        2250,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Log budget rejection\nreturn [{\n  json: {\n    experiment_id: $('parse-payload').item.json.experiment_id,\n    status: 'blocked',\n    reason: 'Budget not approved by VAULT',\n    requested_amount: 5,\n    rejection_reason: $json.reason || 'Insufficient budget'\n  }\n}];"
+      },
+      "id": "handle-rejection",
+      "name": "Handle Budget Rejection",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        850,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "tableName": "atlas_agent_logs",
+        "dataToSend": "defineBelow",
+        "fieldsToSend": {
+          "values": [
+            {
+              "field": "agent",
+              "value": "MERCURY"
+            },
+            {
+              "field": "action",
+              "value": "distribution_blocked"
+            },
+            {
+              "field": "status",
+              "value": "blocked"
+            },
+            {
+              "field": "details",
+              "value": "={{ JSON.stringify($json) }}"
+            }
+          ]
+        },
+        "table": "atlas_agent_logs",
+        "columns": "agent_name,action_type,details,experiment_id"
+      },
+      "id": "log-rejection",
+      "name": "Log Rejection",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1050,
+        500
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "{{credentialId}}",
+          "name": "ATLAS Supabase"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "webhook-trigger": {
+      "main": [
+        [
+          {
+            "node": "parse-payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "parse-payload": {
+      "main": [
+        [
+          {
+            "node": "budget-check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "budget-check": {
+      "main": [
+        [
+          {
+            "node": "budget-approved",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "budget-approved": {
+      "main": [
+        [
+          {
+            "node": "generate-content",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "handle-rejection",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "generate-content": {
+      "main": [
+        [
+          {
+            "node": "process-content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "process-content": {
+      "main": [
+        [
+          {
+            "node": "post-reddit",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "create-meta-campaign",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "post-reddit": {
+      "main": [
+        [
+          {
+            "node": "check-results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "create-meta-campaign": {
+      "main": [
+        [
+          {
+            "node": "check-results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "check-results": {
+      "main": [
+        [
+          {
+            "node": "update-experiment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "update-experiment": {
+      "main": [
+        [
+          {
+            "node": "log-activity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "log-activity": {
+      "main": [
+        [
+          {
+            "node": "webhook-response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "handle-rejection": {
+      "main": [
+        [
+          {
+            "node": "log-rejection",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "log-rejection": {
+      "main": [
+        [
+          {
+            "node": "webhook-response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "timezone": "Australia/Sydney",
+    "saveExecutionProgress": true,
+    "saveManualExecutions": true,
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "executionTimeout": 300
+  },
+  "id": "WF-09-Mercury"
+}

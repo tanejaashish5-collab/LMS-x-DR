@@ -1,0 +1,400 @@
+{
+  "name": "WF-07: Veto Checker",
+  "nodes": [
+    {
+      "parameters": {
+        "triggerTimes": {
+          "item": [{
+            "mode": "everyDay",
+            "hour": 9,
+            "minute": 30
+          }]
+        }
+      },
+      "id": "cron-trigger",
+      "name": "Daily 9:30 AM AEST",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "getAll",
+        "returnAll": false,
+        "limit": 10,
+        "filters": {
+          "receivedAfter": "={{ $now.minus({ hours: 2 }).toISO() }}",
+          "labelIds": ["INBOX"],
+          "q": "subject:\"ATLAS Daily Briefing\""
+        }
+      },
+      "id": "gmail-check",
+      "name": "Check Gmail for Briefing Replies",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [450, 300],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "{{credentialId}}",
+          "name": "ATLAS Gmail"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Check if any email contains VETO\nconst emails = $input.all();\nlet vetoDetected = false;\nlet vetoReason = '';\n\nfor (const item of emails) {\n  const emailBody = item.json.snippet || '';\n  const subject = item.json.payload?.headers?.find(h => h.name === 'Subject')?.value || '';\n  \n  // Check for VETO keyword (case insensitive)\n  if (emailBody.toUpperCase().includes('VETO') || \n      emailBody.toUpperCase().includes('STOP') ||\n      emailBody.toUpperCase().includes('CANCEL')) {\n    vetoDetected = true;\n    vetoReason = emailBody.substring(0, 200); // First 200 chars as reason\n    break;\n  }\n}\n\nreturn [{\n  json: {\n    vetoDetected,\n    vetoReason,\n    checkTime: new Date().toISOString(),\n    emailsChecked: emails.length\n  }\n}];"
+      },
+      "id": "veto-detector",
+      "name": "Detect VETO",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [{
+            "value1": "={{ $json.vetoDetected }}",
+            "value2": true
+          }]
+        }
+      },
+      "id": "veto-check",
+      "name": "VETO Detected?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [850, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE atlas_briefings\nSET veto_status = 'vetoed',\n    veto_reason = $1,\n    veto_checked_at = NOW()\nWHERE date = CURRENT_DATE\n  AND type = 'daily'\nRETURNING *;",
+        "additionalFields": {
+          "queryParams": "={{ $json.vetoReason }}"
+        }
+      },
+      "id": "update-vetoed",
+      "name": "Mark Briefing as VETOED",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1050, 200],
+      "credentials": {
+        "supabaseApi": {
+          "id": "{{credentialId}}",
+          "name": "ATLAS Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE atlas_briefings\nSET veto_status = 'approved',\n    veto_checked_at = NOW()\nWHERE date = CURRENT_DATE\n  AND type = 'daily'\n  AND veto_status = 'pending'\nRETURNING *;",
+        "additionalFields": {}
+      },
+      "id": "update-approved",
+      "name": "Mark Briefing as APPROVED",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1050, 400],
+      "credentials": {
+        "supabaseApi": {
+          "id": "{{credentialId}}",
+          "name": "ATLAS Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableName": "atlas_briefings",
+        "filters": {
+          "conditions": [
+            {
+              "field": "date",
+              "condition": "eq",
+              "value": "={{ $now.format('yyyy-MM-dd') }}"
+            },
+            {
+              "field": "type",
+              "condition": "eq",
+              "value": "daily"
+            }
+          ]
+        }
+      },
+      "id": "get-decisions",
+      "name": "Get Today's Decisions",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1250, 400],
+      "credentials": {
+        "supabaseApi": {
+          "id": "{{credentialId}}",
+          "name": "ATLAS Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse decisions from briefing\nconst briefing = $input.first().json;\nconst decisions = briefing.decisions || [];\n\n// Separate decisions by type\nconst killDecisions = [];\nconst scaleDecisions = [];\nconst launchDecisions = [];\nconst approvalDecisions = [];\n\nfor (const decision of decisions) {\n  switch (decision.type) {\n    case 'kill':\n      killDecisions.push(decision);\n      break;\n    case 'scale':\n      scaleDecisions.push(decision);\n      break;\n    case 'launch':\n      launchDecisions.push(decision);\n      break;\n    case 'approve_opportunity':\n      approvalDecisions.push(decision);\n      break;\n  }\n}\n\nreturn [\n  { json: { type: 'kill', decisions: killDecisions } },\n  { json: { type: 'scale', decisions: scaleDecisions } },\n  { json: { type: 'launch', decisions: launchDecisions } },\n  { json: { type: 'approve', decisions: approvalDecisions } }\n];"
+      },
+      "id": "parse-decisions",
+      "name": "Parse Decisions by Type",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1450, 400]
+    },
+    {
+      "parameters": {
+        "mode": "each"
+      },
+      "id": "split-decisions",
+      "name": "Process Each Decision Type",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 2,
+      "position": [1650, 400]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [{
+            "value1": "={{ $json.type }}",
+            "operation": "equals",
+            "value2": "kill"
+          }]
+        }
+      },
+      "id": "is-kill",
+      "name": "Is Kill Decision?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1850, 300]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "url": "http://localhost:5678/webhook/experiment-killer",
+        "options": {
+          "bodyContentType": "json"
+        },
+        "bodyParametersJson": "={{ JSON.stringify($json.decisions) }}"
+      },
+      "id": "trigger-killer",
+      "name": "Trigger Experiment Killer",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [2050, 200]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [{
+            "value1": "={{ $json.type }}",
+            "operation": "equals",
+            "value2": "launch"
+          }]
+        }
+      },
+      "id": "is-launch",
+      "name": "Is Launch Decision?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1850, 500]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "url": "http://localhost:5678/webhook/forge-builder",
+        "options": {
+          "bodyContentType": "json"
+        },
+        "bodyParametersJson": "={{ JSON.stringify($json.decisions) }}"
+      },
+      "id": "trigger-forge",
+      "name": "Trigger FORGE Builder",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [2050, 600]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Log completion\nconst vetoStatus = $('veto-check').first().json.vetoDetected ? 'VETOED' : 'APPROVED';\nconst timestamp = new Date().toISOString();\n\nreturn [{\n  json: {\n    workflow: 'WF-07 Veto Checker',\n    status: vetoStatus,\n    completedAt: timestamp,\n    message: `Daily veto check completed. Status: ${vetoStatus}`\n  }\n}];"
+      },
+      "id": "log-completion",
+      "name": "Log Completion",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2250, 400]
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "tableName": "atlas_agent_logs",
+        "dataToSend": "defineBelow",
+        "fieldsToSend": {
+          "values": [
+            {
+              "field": "agent",
+              "value": "VETO_CHECKER"
+            },
+            {
+              "field": "action",
+              "value": "={{ $json.status === 'VETOED' ? 'briefing_vetoed' : 'briefing_approved' }}"
+            },
+            {
+              "field": "status",
+              "value": "success"
+            },
+            {
+              "field": "details",
+              "value": "={{ JSON.stringify($json) }}"
+            }
+          ]
+        }
+      },
+      "id": "log-to-db",
+      "name": "Log to Database",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [2450, 400],
+      "credentials": {
+        "supabaseApi": {
+          "id": "{{credentialId}}",
+          "name": "ATLAS Supabase"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "cron-trigger": {
+      "main": [[{
+        "node": "gmail-check",
+        "type": "main",
+        "index": 0
+      }]]
+    },
+    "gmail-check": {
+      "main": [[{
+        "node": "veto-detector",
+        "type": "main",
+        "index": 0
+      }]]
+    },
+    "veto-detector": {
+      "main": [[{
+        "node": "veto-check",
+        "type": "main",
+        "index": 0
+      }]]
+    },
+    "veto-check": {
+      "main": [
+        [{
+          "node": "update-vetoed",
+          "type": "main",
+          "index": 0
+        }],
+        [{
+          "node": "update-approved",
+          "type": "main",
+          "index": 0
+        }]
+      ]
+    },
+    "update-vetoed": {
+      "main": [[{
+        "node": "log-completion",
+        "type": "main",
+        "index": 0
+      }]]
+    },
+    "update-approved": {
+      "main": [[{
+        "node": "get-decisions",
+        "type": "main",
+        "index": 0
+      }]]
+    },
+    "get-decisions": {
+      "main": [[{
+        "node": "parse-decisions",
+        "type": "main",
+        "index": 0
+      }]]
+    },
+    "parse-decisions": {
+      "main": [[{
+        "node": "split-decisions",
+        "type": "main",
+        "index": 0
+      }]]
+    },
+    "split-decisions": {
+      "main": [[{
+        "node": "is-kill",
+        "type": "main",
+        "index": 0
+      }]]
+    },
+    "is-kill": {
+      "main": [
+        [{
+          "node": "trigger-killer",
+          "type": "main",
+          "index": 0
+        }],
+        [{
+          "node": "is-launch",
+          "type": "main",
+          "index": 0
+        }]
+      ]
+    },
+    "is-launch": {
+      "main": [
+        [{
+          "node": "trigger-forge",
+          "type": "main",
+          "index": 0
+        }],
+        [{
+          "node": "split-decisions",
+          "type": "main",
+          "index": 0
+        }]
+      ]
+    },
+    "trigger-killer": {
+      "main": [[{
+        "node": "split-decisions",
+        "type": "main",
+        "index": 0
+      }]]
+    },
+    "trigger-forge": {
+      "main": [[{
+        "node": "split-decisions",
+        "type": "main",
+        "index": 0
+      }]]
+    },
+    "log-completion": {
+      "main": [[{
+        "node": "log-to-db",
+        "type": "main",
+        "index": 0
+      }]]
+    }
+  },
+  "active": false,
+  "settings": {
+    "timezone": "Australia/Sydney",
+    "saveExecutionProgress": true,
+    "saveManualExecutions": true,
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "executionTimeout": 300
+  },
+  "id": "WF-07"
+}

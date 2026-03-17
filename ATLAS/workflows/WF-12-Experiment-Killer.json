@@ -1,0 +1,415 @@
+{
+  "name": "WF-12: Experiment Killer",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "experiment-killer",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "webhookId": "experiment-killer"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract kill decisions from webhook\nconst payload = $input.first().json;\nconst decisions = Array.isArray(payload) ? payload : (payload.decisions || [payload]);\n\nconst experimentsToKill = [];\n\nfor (const decision of decisions) {\n  if (decision.experiment_id) {\n    experimentsToKill.push({\n      experiment_id: decision.experiment_id,\n      kill_reason: decision.reason || 'Manual termination',\n      kill_trigger: decision.trigger || 'MANUAL',\n      final_ehs: decision.final_ehs || 0,\n      budget_spent: decision.budget_spent || 0\n    });\n  }\n}\n\nif (experimentsToKill.length === 0) {\n  throw new Error('No experiments specified for termination');\n}\n\nreturn experimentsToKill;"
+      },
+      "id": "parse-decisions",
+      "name": "Parse Kill Decisions",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "mode": "each"
+      },
+      "id": "split-batch",
+      "name": "Process Each Experiment",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 2,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableName": "atlas_experiments",
+        "filters": {
+          "conditions": [{
+            "field": "id",
+            "condition": "eq",
+            "value": "={{ $json.experiment_id }}"
+          }]
+        }
+      },
+      "id": "get-experiment",
+      "name": "Get Experiment Details",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [850, 300],
+      "credentials": {
+        "supabaseApi": {
+          "id": "{{credentialId}}",
+          "name": "ATLAS Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [{
+            "value1": "={{ $json.status }}",
+            "operation": "equals",
+            "value2": "killed"
+          }]
+        }
+      },
+      "id": "already-killed",
+      "name": "Already Killed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1050, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Check if experiment has active Meta ads\nconst experiment = $input.first().json;\nconst hasMetaAds = experiment.meta_campaign_id && experiment.meta_campaign_id !== '';\nconst hasVercelDeployment = experiment.vercel_deployment_id && experiment.vercel_deployment_id !== '';\n\nreturn [{\n  json: {\n    experiment_id: experiment.id,\n    hasMetaAds,\n    meta_campaign_id: experiment.meta_campaign_id || null,\n    hasVercelDeployment,\n    vercel_deployment_id: experiment.vercel_deployment_id || null,\n    vercel_url: experiment.vercel_url || null,\n    budget_spent: experiment.budget_spent || 0,\n    total_revenue: experiment.total_revenue || 0,\n    kill_reason: $('split-batch').item.json.kill_reason,\n    kill_trigger: $('split-batch').item.json.kill_trigger\n  }\n}];"
+      },
+      "id": "check-resources",
+      "name": "Check Active Resources",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1250, 200]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [{
+            "value1": "={{ $json.hasMetaAds }}",
+            "value2": true
+          }]
+        }
+      },
+      "id": "has-ads",
+      "name": "Has Meta Ads?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1450, 200]
+    },
+    {
+      "parameters": {
+        "httpMethod": "DELETE",
+        "url": "=https://graph.facebook.com/v18.0/{{ $json.meta_campaign_id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpQueryAuth",
+        "options": {},
+        "queryParametersJson": "={{ JSON.stringify({ access_token: $env.META_ACCESS_TOKEN }) }}"
+      },
+      "id": "pause-meta-ads",
+      "name": "Pause Meta Ads",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1650, 100],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [{
+            "value1": "={{ $('check-resources').item.json.hasVercelDeployment }}",
+            "value2": true
+          }]
+        }
+      },
+      "id": "has-vercel",
+      "name": "Has Vercel Deployment?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1850, 200]
+    },
+    {
+      "parameters": {
+        "httpMethod": "DELETE",
+        "url": "=https://api.vercel.com/v13/deployments/{{ $('check-resources').item.json.vercel_deployment_id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "headerParametersJson": "={{ JSON.stringify({ Authorization: 'Bearer ' + $env.VERCEL_API_TOKEN }) }}"
+      },
+      "id": "delete-vercel",
+      "name": "Delete Vercel Deployment",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [2050, 100],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Calculate budget to return\nconst experiment = $('check-resources').item.json;\nconst budgetSpent = parseFloat(experiment.budget_spent || 0);\nconst totalRevenue = parseFloat(experiment.total_revenue || 0);\nconst budgetToReturn = Math.max(0, 50 - budgetSpent); // Return unused budget from $50 allocation\n\nreturn [{\n  json: {\n    experiment_id: experiment.experiment_id,\n    budget_spent: budgetSpent,\n    budget_to_return: budgetToReturn,\n    total_revenue: totalRevenue,\n    net_result: totalRevenue - budgetSpent\n  }\n}];"
+      },
+      "id": "calculate-budget",
+      "name": "Calculate Budget Return",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2250, 200]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [{
+            "value1": "={{ $json.budget_to_return }}",
+            "operation": "larger",
+            "value2": 0
+          }]
+        }
+      },
+      "id": "has-budget-return",
+      "name": "Budget to Return?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [2450, 200]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "url": "http://localhost:5678/webhook/budget-check",
+        "options": {
+          "bodyContentType": "json"
+        },
+        "bodyParametersJson": "={{ JSON.stringify({\n  amount: $json.budget_to_return,\n  type: 'budget_return',\n  experiment_id: $json.experiment_id,\n  agent: 'EXPERIMENT_KILLER',\n  description: 'Returning unused budget from killed experiment'\n}) }}"
+      },
+      "id": "return-budget",
+      "name": "Return Budget to VAULT",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [2650, 100]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE atlas_experiments\nSET \n  status = 'killed',\n  killed_at = NOW(),\n  kill_reason = $1,\n  kill_trigger = $2,\n  ehs_final = $3\nWHERE id = $4\nRETURNING *;",
+        "additionalFields": {
+          "queryParams": "={{ $('split-batch').item.json.kill_reason }},{{ $('split-batch').item.json.kill_trigger }},{{ $('split-batch').item.json.final_ehs }},{{ $('check-resources').item.json.experiment_id }}"
+        }
+      },
+      "id": "update-killed",
+      "name": "Update Experiment Status - KILLED",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [2850, 200],
+      "credentials": {
+        "supabaseApi": {
+          "id": "{{credentialId}}",
+          "name": "ATLAS Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "tableName": "atlas_agent_logs",
+        "dataToSend": "defineBelow",
+        "fieldsToSend": {
+          "values": [
+            {
+              "field": "agent",
+              "value": "EXPERIMENT_KILLER"
+            },
+            {
+              "field": "action",
+              "value": "experiment_terminated"
+            },
+            {
+              "field": "status",
+              "value": "success"
+            },
+            {
+              "field": "details",
+              "value": "={{ JSON.stringify({\n  experiment_id: $('check-resources').item.json.experiment_id,\n  kill_reason: $('split-batch').item.json.kill_reason,\n  kill_trigger: $('split-batch').item.json.kill_trigger,\n  budget_returned: $('calculate-budget').item.json.budget_to_return,\n  final_metrics: {\n    budget_spent: $('calculate-budget').item.json.budget_spent,\n    total_revenue: $('calculate-budget').item.json.total_revenue,\n    net_result: $('calculate-budget').item.json.net_result\n  }\n}) }}"
+            }
+          ]
+        }
+      },
+      "id": "log-activity",
+      "name": "Log Kill Activity",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [3050, 200],
+      "credentials": {
+        "supabaseApi": {
+          "id": "{{credentialId}}",
+          "name": "ATLAS Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "=",
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({\n  success: true,\n  message: 'Experiments terminated successfully',\n  experiments_killed: $('split-batch').context.currentRunIndex + 1\n}) }}"
+      },
+      "id": "webhook-response",
+      "name": "Webhook Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [3250, 300]
+    }
+  ],
+  "connections": {
+    "webhook-trigger": {
+      "main": [[{
+        "node": "parse-decisions",
+        "type": "main",
+        "index": 0
+      }]]
+    },
+    "parse-decisions": {
+      "main": [[{
+        "node": "split-batch",
+        "type": "main",
+        "index": 0
+      }]]
+    },
+    "split-batch": {
+      "main": [[{
+        "node": "get-experiment",
+        "type": "main",
+        "index": 0
+      }]]
+    },
+    "get-experiment": {
+      "main": [[{
+        "node": "already-killed",
+        "type": "main",
+        "index": 0
+      }]]
+    },
+    "already-killed": {
+      "main": [
+        [{
+          "node": "split-batch",
+          "type": "main",
+          "index": 0
+        }],
+        [{
+          "node": "check-resources",
+          "type": "main",
+          "index": 0
+        }]
+      ]
+    },
+    "check-resources": {
+      "main": [[{
+        "node": "has-ads",
+        "type": "main",
+        "index": 0
+      }]]
+    },
+    "has-ads": {
+      "main": [
+        [{
+          "node": "pause-meta-ads",
+          "type": "main",
+          "index": 0
+        }],
+        [{
+          "node": "has-vercel",
+          "type": "main",
+          "index": 0
+        }]
+      ]
+    },
+    "pause-meta-ads": {
+      "main": [[{
+        "node": "has-vercel",
+        "type": "main",
+        "index": 0
+      }]]
+    },
+    "has-vercel": {
+      "main": [
+        [{
+          "node": "delete-vercel",
+          "type": "main",
+          "index": 0
+        }],
+        [{
+          "node": "calculate-budget",
+          "type": "main",
+          "index": 0
+        }]
+      ]
+    },
+    "delete-vercel": {
+      "main": [[{
+        "node": "calculate-budget",
+        "type": "main",
+        "index": 0
+      }]]
+    },
+    "calculate-budget": {
+      "main": [[{
+        "node": "has-budget-return",
+        "type": "main",
+        "index": 0
+      }]]
+    },
+    "has-budget-return": {
+      "main": [
+        [{
+          "node": "return-budget",
+          "type": "main",
+          "index": 0
+        }],
+        [{
+          "node": "update-killed",
+          "type": "main",
+          "index": 0
+        }]
+      ]
+    },
+    "return-budget": {
+      "main": [[{
+        "node": "update-killed",
+        "type": "main",
+        "index": 0
+      }]]
+    },
+    "update-killed": {
+      "main": [[{
+        "node": "log-activity",
+        "type": "main",
+        "index": 0
+      }]]
+    },
+    "log-activity": {
+      "main": [[{
+        "node": "split-batch",
+        "type": "main",
+        "index": 0
+      }]]
+    },
+    "split-batch": {
+      "main": [
+        [],
+        [{
+          "node": "webhook-response",
+          "type": "main",
+          "index": 0
+        }]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "timezone": "Australia/Sydney",
+    "saveExecutionProgress": true,
+    "saveManualExecutions": true,
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "executionTimeout": 300
+  },
+  "id": "WF-12-Experiment"
+}

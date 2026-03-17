@@ -1,0 +1,61 @@
+# ATLAS Security - Never commit credentials
+config/.env
+.env
+*.env
+.env.*
+*.key
+*.pem
+*.cert
+
+# API Keys and Secrets
+**/api_keys/
+**/credentials/
+**/secrets/
+
+# Supabase service keys
+*service_role*
+*jwt_secret*
+
+# n8n
+*.n8n
+n8n-backup/
+
+# Node modules
+node_modules/
+**/node_modules/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Backup files
+*.backup
+*.bak
+backups/
+
+# Test outputs
+test-results/
+coverage/
+
+# Python
+__pycache__/
+*.pyc
+venv/
+.env.python
+
+# Build outputs
+dist/
+build/

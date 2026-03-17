@@ -1,0 +1,356 @@
+{
+  "name": "WF-06: Daily Briefing Sender",
+  "nodes": [
+    {
+      "parameters": {
+        "triggerTimes": {
+          "item": [
+            {
+              "mode": "everyDay",
+              "hour": 7,
+              "minute": 30
+            }
+          ]
+        }
+      },
+      "id": "cron-trigger",
+      "name": "Daily at 7:30 AM AEST",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            {
+              "name": "briefing_id",
+              "value": "={{$json[\"briefing_id\"]}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "receive-trigger",
+      "name": "Receive Briefing ID",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 1,
+      "position": [250, 500],
+      "notes": "Alternative trigger from WF-05"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "table": "atlas_briefings",
+        "id": "={{$json[\"briefing_id\"]}}",
+        "additionalFields": {}
+      },
+      "id": "get-briefing",
+      "name": "Get Briefing from Supabase",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [450, 300],
+      "credentials": {
+        "supabaseApi": {
+          "id": "1",
+          "name": "ATLAS Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "claude-3-haiku-20240307"
+            },
+            {
+              "name": "max_tokens",
+              "value": "1000"
+            },
+            {
+              "name": "messages",
+              "value": "={{JSON.stringify([{role: 'user', content: 'Format this ATLAS briefing data into a clean, scannable HTML email for Ashish. Use this structure: PORTFOLIO STATUS (active experiments, total EHS, budget remaining), YESTERDAYS HIGHLIGHTS (top metrics), TODAYS PLAN (what agents will do), DECISIONS MADE (kills, scales, launches), ACTION NEEDED (anything requiring veto). Keep it under 300 words. Use clean HTML formatting with dark theme colors. Data: ' + JSON.stringify($node[\"Get Briefing from Supabase\"].json)}])}}"
+            },
+            {
+              "name": "system",
+              "value": "You are formatting daily briefings for the ATLAS autonomous system at ForgeVoice Studio. Create clean, professional HTML emails with a dark theme using #0a0a0f background and #C8A84E gold accents."
+            }
+          ]
+        },
+        "options": {
+          "retry": {
+            "maxTries": 3,
+            "waitBetweenTries": 3000,
+            "onError": "continueErrorOutput"
+          }
+        }
+      },
+      "id": "format-briefing",
+      "name": "Format Briefing with Claude",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [650, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "2",
+          "name": "Claude API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fromEmail": "atlas@forgevoicestudio.com",
+        "toEmail": "taneja.ashish5@gmail.com",
+        "subject": "[ATLAS Daily] {{$now.format('YYYY-MM-DD')}} — {{$node[\"Get Briefing from Supabase\"].json[\"summary\"]}}",
+        "html": "={{$node[\"Format Briefing with Claude\"].json[\"content\"][0][\"text\"]}}",
+        "options": {
+          "replyTo": "taneja.ashish5@gmail.com"
+        }
+      },
+      "id": "send-email",
+      "name": "Send Gmail",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [850, 300],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "3",
+          "name": "Gmail OAuth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "page",
+        "operation": "create",
+        "parent": "={{$env.NOTION_DATABASE_ID_BRIEFINGS}}",
+        "title": "Daily Briefing - {{$now.format('YYYY-MM-DD')}}",
+        "properties": {
+          "additionalProperties": [
+            {
+              "key": "Date",
+              "dateValue": "={{$now.format('YYYY-MM-DD')}}"
+            },
+            {
+              "key": "Summary",
+              "textValue": "={{$node[\"Get Briefing from Supabase\"].json[\"summary\"]}}"
+            },
+            {
+              "key": "Decisions",
+              "multiSelectValue": "={{$node[\"Get Briefing from Supabase\"].json[\"decisions\"].map(d => d.action)}}"
+            },
+            {
+              "key": "Veto Status",
+              "selectValue": "={{$node[\"Get Briefing from Supabase\"].json[\"veto_status\"]}}"
+            },
+            {
+              "key": "Portfolio Status",
+              "textValue": "={{JSON.stringify($node[\"Get Briefing from Supabase\"].json[\"portfolio_status\"])}}"
+            }
+          ]
+        },
+        "blockContent": {
+          "blockItems": [
+            {
+              "type": "heading_2",
+              "text": "Briefing Content"
+            },
+            {
+              "type": "paragraph",
+              "text": "={{$node[\"Format Briefing with Claude\"].json[\"content\"][0][\"text\"].replace(/<[^>]*>/g, '')}}"
+            }
+          ]
+        }
+      },
+      "id": "create-notion-page",
+      "name": "Create/Update Notion Page",
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2,
+      "position": [850, 500],
+      "credentials": {
+        "notionApi": {
+          "id": "4",
+          "name": "Notion API"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "table": "atlas_agent_logs",
+        "columns": "agent,action,status,model_used,tokens_in,tokens_out,cost_usd,output",
+        "additionalFields": {
+          "columns": {
+            "values": [
+              {
+                "key": "agent",
+                "value": "ATLAS"
+              },
+              {
+                "key": "action",
+                "value": "send_daily_briefing"
+              },
+              {
+                "key": "status",
+                "value": "success"
+              },
+              {
+                "key": "model_used",
+                "value": "claude-3-haiku"
+              },
+              {
+                "key": "output",
+                "value": "={{JSON.stringify({email_sent: true, notion_created: true, briefing_id: $node[\"Get Briefing from Supabase\"].json[\"id\"]})}}"
+              }
+            ]
+          }
+        }
+      },
+      "id": "log-success",
+      "name": "Log to Agent Logs",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1050, 400],
+      "credentials": {
+        "supabaseApi": {
+          "id": "1",
+          "name": "ATLAS Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "table": "atlas_briefings",
+        "id": "={{$node[\"Get Briefing from Supabase\"].json[\"id\"]}}",
+        "columns": "sent_at",
+        "additionalFields": {
+          "columns": {
+            "values": [
+              {
+                "key": "sent_at",
+                "value": "={{$now.toISO()}}"
+              }
+            ]
+          }
+        }
+      },
+      "id": "update-briefing",
+      "name": "Mark Briefing as Sent",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1050, 300],
+      "credentials": {
+        "supabaseApi": {
+          "id": "1",
+          "name": "ATLAS Supabase"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "cron-trigger": {
+      "main": [
+        [
+          {
+            "node": "get-briefing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "receive-trigger": {
+      "main": [
+        [
+          {
+            "node": "get-briefing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "get-briefing": {
+      "main": [
+        [
+          {
+            "node": "format-briefing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "format-briefing": {
+      "main": [
+        [
+          {
+            "node": "send-email",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "create-notion-page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "send-email": {
+      "main": [
+        [
+          {
+            "node": "update-briefing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "create-notion-page": {
+      "main": [
+        [
+          {
+            "node": "log-success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "update-briefing": {
+      "main": [
+        [
+          {
+            "node": "log-success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "id": "WF-06"
+}
