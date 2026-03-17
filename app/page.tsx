@@ -7,6 +7,7 @@ import {
   scoreWeights,
 } from "./data/opportunities";
 import type { Opportunity } from "./data/opportunities";
+import LearningPath from "./components/LearningPath";
 
 /* ─── Helpers ─── */
 function getSortedOpportunities(sortBy: string) {
@@ -219,6 +220,9 @@ function OpportunityCard({
               <ScoreBar label="Autonomy" value={opp.scores.autonomy} />
             </div>
           </div>
+
+          {/* Learning Path - LMS Component */}
+          <LearningPath opportunityId={opp.id} opportunityName={opp.shortName} />
         </div>
       )}
     </div>
