@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Hidden Gold Mines — AI Business Opportunity Ranker",
+  title: "Atlas — AI Business Opportunity Intelligence",
   description:
-    "Interactive 3D comparison of the top AI-powered business opportunities for 2026. Data-driven rankings across 8 dimensions.",
+    "12 AI-powered business opportunities scored, ranked, and analyzed. Built with deep research intelligence.",
 };
 
 export default function RootLayout({
@@ -14,7 +14,13 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="dark">
-      <body className="min-h-screen grid-bg">{children}</body>
+      <head>
+        <link
+          href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
+          rel="stylesheet"
+        />
+      </head>
+      <body className="min-h-screen antialiased">{children}</body>
     </html>
   );
 }
