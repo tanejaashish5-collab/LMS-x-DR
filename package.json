@@ -1,7 +1,7 @@
 {
-  "name": "opportunity-ranker",
+  "name": "lms-x-dr",
   "version": "1.0.0",
-  "description": "",
+  "description": "AI-Powered Learning Management System × Demand Radar Platform",
   "main": "index.js",
   "scripts": {
     "dev": "next dev",

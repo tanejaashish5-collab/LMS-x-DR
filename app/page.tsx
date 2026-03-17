@@ -353,9 +353,9 @@ export default function Home() {
           <nav className="flex items-center justify-between mb-16">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[var(--accent-blue)] to-[var(--accent-purple)] flex items-center justify-center">
-                <span className="text-white text-sm font-black">A</span>
+                <span className="text-white text-sm font-black">L×D</span>
               </div>
-              <span className="font-bold text-lg tracking-tight">Atlas</span>
+              <span className="font-bold text-lg tracking-tight">LMS×DR</span>
             </div>
             <div className="flex items-center gap-4 text-sm text-[var(--text-secondary)]">
               <a href="#opportunities" className="hover:text-[var(--text-primary)] transition-colors">
@@ -476,9 +476,9 @@ export default function Home() {
           <div className="max-w-6xl mx-auto px-5 flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-2 text-sm text-[var(--text-muted)]">
               <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-[var(--accent-blue)] to-[var(--accent-purple)] flex items-center justify-center">
-                <span className="text-white text-[10px] font-black">A</span>
+                <span className="text-white text-[10px] font-black">L</span>
               </div>
-              Atlas Intelligence — Research compiled March 2026
+              LMS×DR Intelligence — Learning × Demand Analysis Platform
             </div>
             <div className="text-xs text-[var(--text-muted)]">
               Built with AI deep-research agents

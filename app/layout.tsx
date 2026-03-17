@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Atlas — AI Business Opportunity Intelligence",
+  title: "LMS×DR — Learning Management × Demand Radar",
   description:
-    "12 AI-powered business opportunities scored, ranked, and analyzed. Built with deep research intelligence.",
+    "AI-powered platform combining business opportunity analysis with structured learning paths. 12 opportunities scored across 8 dimensions with implementation roadmaps.",
 };
 
 export default function RootLayout({
