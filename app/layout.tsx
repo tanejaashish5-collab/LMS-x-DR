@@ -5,6 +5,7 @@ export const metadata: Metadata = {
   title: "LMS×DR — Learning Management × Demand Radar",
   description:
     "AI-powered platform combining business opportunity analysis with structured learning paths. 12 opportunities scored across 8 dimensions with implementation roadmaps.",
+  viewport: "width=device-width, initial-scale=1, maximum-scale=5",
 };
 
 export default function RootLayout({
