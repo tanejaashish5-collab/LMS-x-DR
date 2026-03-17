@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "AI Business Opportunities — Ranked",
+  title: "Atlas — AI Business Opportunity Intelligence",
   description:
-    "12 AI-powered business opportunities ranked by potential. Simple, clear, data-driven.",
+    "12 AI-powered business opportunities scored, ranked, and analyzed. Built with deep research intelligence.",
 };
 
 export default function RootLayout({
@@ -13,8 +13,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body className="min-h-screen">{children}</body>
+    <html lang="en" className="dark">
+      <head>
+        <link
+          href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
+          rel="stylesheet"
+        />
+      </head>
+      <body className="min-h-screen antialiased">{children}</body>
     </html>
   );
 }
