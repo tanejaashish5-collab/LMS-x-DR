@@ -1,0 +1,31 @@
+{
+  "hooks": {
+    "session_start": {
+      "description": "Load project context at session start",
+      "actions": [
+        {
+          "type": "note",
+          "message": "Session started. CLAUDE.md loaded. Use /plan, /tdd, /code-review, or /security-scan for workflows. Agents run in separate context windows."
+        }
+      ]
+    },
+    "pre_commit": {
+      "description": "Run quality checks before committing",
+      "actions": [
+        {
+          "type": "note",
+          "message": "Pre-commit: Verify no hardcoded secrets, debug statements, or console.logs in staged files."
+        }
+      ]
+    },
+    "context_optimization": {
+      "description": "Token management reminders",
+      "tips": [
+        "Use agents for complex reviews — they run in separate context windows",
+        "Skills load only when invoked — they don't cost tokens until needed",
+        "Keep CLAUDE.md under 100 lines — it loads every turn",
+        "For long sessions, summarize findings periodically to free context"
+      ]
+    }
+  }
+}

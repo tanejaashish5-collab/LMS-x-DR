@@ -1,0 +1,116 @@
+{
+  "mcpServers": {
+    "github": {
+      "description": "GitHub PR/issue/repo operations — daily dev workflow",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}"
+      },
+      "priority": "critical",
+      "notes": "Install: npm install -g @modelcontextprotocol/server-github"
+    },
+    "filesystem": {
+      "description": "Local project file access for agents",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "."],
+      "priority": "critical",
+      "notes": "Official Anthropic reference implementation"
+    },
+    "memory": {
+      "description": "Persistent knowledge graph across sessions",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-memory"],
+      "priority": "high",
+      "notes": "Retains project context, decisions, and preferences across sessions"
+    },
+    "sequential-thinking": {
+      "description": "Structured chain-of-thought for complex problems",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"],
+      "priority": "high",
+      "notes": "Most-used MCP server by installs (5,550+). Dynamic reflective problem-solving"
+    },
+    "playwright": {
+      "description": "LLM-driven browser automation and E2E testing",
+      "command": "npx",
+      "args": ["-y", "@anthropic/mcp-playwright"],
+      "priority": "high",
+      "notes": "~29K stars. Accessibility snapshots for UI testing. Pairs with design-review skill"
+    },
+    "dbhub": {
+      "description": "Zero-dep multi-database access (Postgres, MySQL, SQLite, SQL Server)",
+      "command": "npx",
+      "args": ["-y", "@bytebase/dbhub"],
+      "env": {
+        "DATABASE_URL": "${DATABASE_URL}"
+      },
+      "priority": "high",
+      "notes": "github.com/bytebase/dbhub — Read-only mode, SSH tunneling, SSL/TLS support"
+    },
+    "context7": {
+      "description": "Always-current library documentation (not stale training data)",
+      "command": "npx",
+      "args": ["-y", "context7-mcp"],
+      "priority": "high",
+      "notes": "11K+ views, 690+ installs. Fetches live docs for any library"
+    },
+    "grafana": {
+      "description": "Query Prometheus metrics, Loki logs, alert rules",
+      "command": "npx",
+      "args": ["-y", "@grafana/mcp-grafana"],
+      "env": {
+        "GRAFANA_URL": "${GRAFANA_URL}",
+        "GRAFANA_API_KEY": "${GRAFANA_API_KEY}"
+      },
+      "priority": "medium",
+      "notes": "github.com/grafana/mcp-grafana — Production monitoring"
+    },
+    "sentry": {
+      "description": "Production error tracking and performance monitoring",
+      "command": "npx",
+      "args": ["-y", "@sentry/mcp-server"],
+      "env": {
+        "SENTRY_AUTH_TOKEN": "${SENTRY_AUTH_TOKEN}"
+      },
+      "priority": "medium",
+      "notes": "~1.6K stars. Track and debug production errors"
+    },
+    "supabase": {
+      "description": "Supabase database operations and auth",
+      "command": "npx",
+      "args": ["-y", "@supabase/mcp-server"],
+      "env": {
+        "SUPABASE_URL": "${SUPABASE_URL}",
+        "SUPABASE_KEY": "${SUPABASE_KEY}"
+      },
+      "priority": "medium",
+      "notes": "Direct Supabase integration — database, auth, storage, edge functions"
+    },
+    "stripe": {
+      "description": "Payment processing and subscription management",
+      "command": "npx",
+      "args": ["-y", "@stripe/mcp-server"],
+      "env": {
+        "STRIPE_SECRET_KEY": "${STRIPE_SECRET_KEY}"
+      },
+      "priority": "medium",
+      "notes": "Automated billing, invoicing, and subscription management"
+    },
+    "vercel": {
+      "description": "Deployment management and serverless functions",
+      "command": "npx",
+      "args": ["-y", "@vercel/mcp-server"],
+      "env": {
+        "VERCEL_TOKEN": "${VERCEL_TOKEN}"
+      },
+      "priority": "medium",
+      "notes": "Deploy, manage domains, check deployment status"
+    }
+  },
+  "_notes": {
+    "installation": "Add servers with: claude mcp add <name> -- npx <package>",
+    "token_optimization": "Keep under 10 MCP servers enabled simultaneously",
+    "priority_guide": "critical = always on, high = enable for most work, medium = enable when needed"
+  }
+}
