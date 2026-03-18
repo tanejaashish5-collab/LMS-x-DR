@@ -323,8 +323,9 @@ class VAULTAgent:
     # ===========================================
 
     def _get_or_create_budget(self, month_key: str) -> Dict:
-        """Get budget for month, create if doesn't exist"""
+        """Get budget for month by computing from ledger (budget_summary is a VIEW)"""
         try:
+            # First try reading the view (works if it exists and has data)
             result = self.supabase.table('atlas_budget_summary').select(
                 "*"
             ).eq('month_key', month_key).execute()
@@ -332,31 +333,57 @@ class VAULTAgent:
             if result.data:
                 return result.data[0]
 
-            # Initialize new month budget
-            return self._initialize_budget(month_key)
+            # No data for this month — compute from ledger directly
+            return self._compute_budget_from_ledger(month_key)
 
         except Exception as e:
-            logger.error(f"Failed to get budget: {e}")
-            raise
+            logger.warning(f"Budget summary read failed, computing from ledger: {e}")
+            return self._compute_budget_from_ledger(month_key)
 
-    def _initialize_budget(self, month_key: str) -> Dict:
-        """Initialize budget for new month"""
-        budget_data = {
-            "month_key": month_key,
-            "total_deposited": self.limits.monthly_limit,
-            "total_spent": 0,
-            "total_revenue": 0,
-            "current_balance": self.limits.monthly_limit,
-            "transaction_count": 0
-        }
+    def _compute_budget_from_ledger(self, month_key: str) -> Dict:
+        """Compute budget from atlas_budget_ledger (no INSERT into view needed)"""
+        try:
+            ledger = self.supabase.table('atlas_budget_ledger').select(
+                "*"
+            ).eq('month_key', month_key).execute()
 
-        result = self.supabase.table('atlas_budget_summary').insert(
-            budget_data
-        ).execute()
+            total_spent = 0
+            total_revenue = 0
+            if ledger.data:
+                total_spent = sum(
+                    abs(float(t.get('amount', 0)))
+                    for t in ledger.data
+                    if t.get('type') == 'spend'
+                )
+                total_revenue = sum(
+                    float(t.get('amount', 0))
+                    for t in ledger.data
+                    if t.get('type') == 'revenue'
+                )
 
-        logger.info(f"Initialized budget for {month_key}: ${self.limits.monthly_limit}")
+            budget_data = {
+                "month_key": month_key,
+                "total_deposited": self.limits.monthly_limit,
+                "total_spent": total_spent,
+                "total_revenue": total_revenue,
+                "current_balance": self.limits.monthly_limit - total_spent + total_revenue,
+                "transaction_count": len(ledger.data) if ledger.data else 0
+            }
 
-        return result.data[0] if result.data else budget_data
+            logger.info(f"Budget for {month_key}: ${budget_data['current_balance']:.2f} remaining")
+            return budget_data
+
+        except Exception as e:
+            logger.error(f"Failed to compute budget from ledger: {e}")
+            # Fallback: return fresh budget so system doesn't crash
+            return {
+                "month_key": month_key,
+                "total_deposited": self.limits.monthly_limit,
+                "total_spent": 0,
+                "total_revenue": 0,
+                "current_balance": self.limits.monthly_limit,
+                "transaction_count": 0
+            }
 
     def _update_experiment_spend(self, request: BudgetRequest):
         """Update experiment budget_spent field"""
