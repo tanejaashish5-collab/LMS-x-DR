@@ -31,7 +31,12 @@ logger = logging.getLogger('ATLAS')
 
 # Load environment variables
 from dotenv import load_dotenv
-load_dotenv('/Users/ashishtaneja/Desktop/Business Opp/ATLAS/config/.env')
+
+# Load .env from config/ relative to this file (works locally and on Railway)
+_env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'config', '.env')
+if os.path.exists(_env_path):
+    load_dotenv(_env_path)
+# On Railway, env vars are injected directly — no .env file needed
 
 # Initialize clients
 SUPABASE_URL = os.getenv('SUPABASE_URL')

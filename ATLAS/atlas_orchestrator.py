@@ -35,7 +35,12 @@ import uvicorn
 
 # Load environment
 from dotenv import load_dotenv
-load_dotenv('/Users/ashishtaneja/Desktop/Business Opp/ATLAS/config/.env')
+
+# Load .env from config/ relative to this file (works locally and on Railway)
+_env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'config', '.env')
+if os.path.exists(_env_path):
+    load_dotenv(_env_path)
+# On Railway, env vars are injected directly — no .env file needed
 
 # Configure logging
 logging.basicConfig(
@@ -385,6 +390,11 @@ Date: {datetime.now().strftime('%Y-%m-%d %H:%M')}
 # API Endpoints
 # ===========================================
 
+@app.get("/health")
+async def health():
+    """Health check for Railway/Docker"""
+    return {"status": "healthy"}
+
 @app.get("/")
 async def root():
     """Root endpoint with system info"""
@@ -517,5 +527,6 @@ if __name__ == "__main__":
     scheduler_thread = threading.Thread(target=run_scheduler, daemon=True)
     scheduler_thread.start()
 
-    # Run FastAPI
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    # Run FastAPI (Railway injects PORT env var)
+    port = int(os.getenv("PORT", "8000"))
+    uvicorn.run(app, host="0.0.0.0", port=port)
