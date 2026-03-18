@@ -133,16 +133,11 @@ class SCOUTAgent:
         """
         if subreddits is None:
             subreddits = [
-                'Entrepreneur',
                 'smallbusiness',
+                'Entrepreneur',
                 'SaaS',
                 'consulting',
-                'freelance',
-                'marketing',
-                'sales',
-                'accounting',
-                'realestate',
-                'legaladvice'
+                'freelance'
             ]
 
         logger.info(f"Starting discovery scan - {len(subreddits)} subreddits, {max_posts} posts each")
@@ -217,15 +212,11 @@ class SCOUTAgent:
         """
         opportunities = []
 
-        # Search terms that indicate automation pain
+        # Search terms that indicate automation pain (top 3 highest-signal terms)
         search_terms = [
             "automation",
             "manual process",
-            "spending hours",
-            "repetitive task",
-            "workflow",
-            "integration",
-            "data entry"
+            "spending hours"
         ]
 
         logger.info(f"Scanning {len(subreddits)} subreddits with {len(search_terms)} search terms")
