@@ -192,7 +192,7 @@ class SCOUTAgent:
         }
 
     # ===========================================
-    # Reddit Discovery via Apify
+    # Reddit Discovery via Public JSON API (free, no API key needed)
     # ===========================================
 
     def _scan_reddit(
@@ -201,18 +201,11 @@ class SCOUTAgent:
         max_posts: int
     ) -> List[Opportunity]:
         """
-        Scan Reddit for opportunities using Apify
-
-        Args:
-            subreddits: List of subreddits to scan
-            max_posts: Max posts per subreddit
-
-        Returns:
-            List of raw opportunities
+        Scan Reddit for opportunities using Reddit's public JSON API.
+        No API key or Apify needed — just appends .json to Reddit URLs.
         """
         opportunities = []
 
-        # Search terms that indicate automation pain (top 3 highest-signal terms)
         search_terms = [
             "automation",
             "manual process",
@@ -224,25 +217,37 @@ class SCOUTAgent:
         for subreddit in subreddits:
             for term in search_terms:
                 try:
-                    # Use Apify Reddit Scraper
-                    posts = self._apify_reddit_search(
+                    posts = self._reddit_json_search(
                         subreddit=subreddit,
                         search_term=term,
-                        max_results=max_posts // len(search_terms)
+                        limit=max_posts // len(search_terms)
                     )
 
                     for post in posts:
+                        data = post.get('data', {})
+                        title = data.get('title', '')
+                        selftext = data.get('selftext', '')
+                        permalink = data.get('permalink', '')
+                        url = f"https://www.reddit.com{permalink}" if permalink else ''
+
+                        if not title:
+                            continue
+
                         opp = Opportunity(
-                            title=post.get('title', ''),
+                            title=title,
                             source='reddit',
-                            source_url=post.get('url', ''),
-                            description=post.get('selftext', '') or post.get('title', '')
+                            source_url=url,
+                            description=selftext or title
                         )
                         opportunities.append(opp)
 
                 except Exception as e:
                     logger.error(f"Error scanning r/{subreddit} for '{term}': {e}")
                     continue
+
+                # Small delay to respect Reddit rate limits
+                import time
+                time.sleep(1)
 
         # Deduplicate by URL
         seen_urls = set()
@@ -254,79 +259,39 @@ class SCOUTAgent:
 
         return unique_opportunities
 
-    def _apify_reddit_search(
+    def _reddit_json_search(
         self,
         subreddit: str,
         search_term: str,
-        max_results: int
+        limit: int = 15
     ) -> List[Dict[str, Any]]:
         """
-        Search Reddit using Apify API
-
-        Args:
-            subreddit: Subreddit name
-            search_term: Search query
-            max_results: Max results to return
-
-        Returns:
-            List of Reddit posts
+        Search Reddit using the public JSON API (no API key needed).
+        Appends .json to any Reddit URL to get structured data.
         """
         try:
-            # Apify Reddit Scraper Lite (free tier)
-            actor_id = "trudax~reddit-scraper-lite"
-
-            # Start actor run (use token as query param, not Bearer header)
-            url = f"https://api.apify.com/v2/acts/{actor_id}/runs"
+            url = f"https://www.reddit.com/r/{subreddit}/search.json"
+            params = {
+                "q": search_term,
+                "restrict_sr": "1",
+                "sort": "new",
+                "limit": str(min(limit, 25)),
+                "t": "month"  # Last month's posts
+            }
             headers = {
-                "Content-Type": "application/json"
+                "User-Agent": "ATLAS-Scout/2.0 (business opportunity discovery)"
             }
 
-            payload = {
-                "startUrls": [
-                    {
-                        "url": f"https://www.reddit.com/r/{subreddit}/search/?q={search_term}&restrict_sr=1&sort=new"
-                    }
-                ],
-                "maxItems": max_results,
-                "extendOutputFunction": "",
-                "maxPostCount": max_results,
-                "skipComments": True
-            }
-
-            # Run actor (token as query param for Apify v2 API)
-            params = {"token": self.apify_token}
-            response = requests.post(url, headers=headers, params=params, json=payload, timeout=30)
+            response = requests.get(url, params=params, headers=headers, timeout=15)
             response.raise_for_status()
 
-            run_data = response.json()
-            run_id = run_data['data']['id']
-
-            # Wait for completion (timeout after 90 seconds)
-            import time
-            max_wait = 90
-            waited = 0
-
-            while waited < max_wait:
-                status_url = f"https://api.apify.com/v2/actor-runs/{run_id}"
-                status_response = requests.get(status_url, params=params, timeout=10)
-                status_data = status_response.json()
-
-                if status_data['data']['status'] in ['SUCCEEDED', 'FAILED', 'ABORTED']:
-                    break
-
-                time.sleep(5)
-                waited += 5
-
-            # Get dataset items
-            dataset_id = run_data['data']['defaultDatasetId']
-            items_url = f"https://api.apify.com/v2/datasets/{dataset_id}/items"
-            items_response = requests.get(items_url, params=params, timeout=30)
-            items_response.raise_for_status()
-
-            return items_response.json()
+            data = response.json()
+            posts = data.get('data', {}).get('children', [])
+            logger.info(f"r/{subreddit} '{search_term}': {len(posts)} posts found")
+            return posts
 
         except Exception as e:
-            logger.error(f"Apify Reddit search failed for r/{subreddit} '{search_term}': {e}")
+            logger.error(f"Reddit search failed for r/{subreddit} '{search_term}': {e}")
             return []
 
     # ===========================================
