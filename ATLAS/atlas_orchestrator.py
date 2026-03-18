@@ -109,8 +109,8 @@ class ATLASOrchestrator:
                 logger.warning(f"Discovery blocked: {budget_result['reason']}")
                 return {"status": "blocked", "reason": budget_result['reason']}
 
-            # Run SCOUT discovery
-            discovery_result = await self.scout.run_discovery()
+            # Run SCOUT discovery (sync method)
+            discovery_result = self.scout.run_discovery()
 
             logger.info(f"Discovery complete: {discovery_result}")
 

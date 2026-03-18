@@ -281,13 +281,12 @@ class SCOUTAgent:
             List of Reddit posts
         """
         try:
-            # Apify Reddit Scraper Actor
-            actor_id = "trudax/reddit-scraper"
+            # Apify Reddit Scraper Lite (free tier)
+            actor_id = "trudax~reddit-scraper-lite"
 
-            # Start actor run
+            # Start actor run (use token as query param, not Bearer header)
             url = f"https://api.apify.com/v2/acts/{actor_id}/runs"
             headers = {
-                "Authorization": f"Bearer {self.apify_token}",
                 "Content-Type": "application/json"
             }
 
@@ -303,21 +302,22 @@ class SCOUTAgent:
                 "skipComments": True
             }
 
-            # Run actor
-            response = requests.post(url, headers=headers, json=payload, timeout=30)
+            # Run actor (token as query param for Apify v2 API)
+            params = {"token": self.apify_token}
+            response = requests.post(url, headers=headers, params=params, json=payload, timeout=30)
             response.raise_for_status()
 
             run_data = response.json()
             run_id = run_data['data']['id']
 
-            # Wait for completion (timeout after 60 seconds)
+            # Wait for completion (timeout after 90 seconds)
             import time
-            max_wait = 60
+            max_wait = 90
             waited = 0
 
             while waited < max_wait:
-                status_url = f"https://api.apify.com/v2/acts/{actor_id}/runs/{run_id}"
-                status_response = requests.get(status_url, headers=headers, timeout=10)
+                status_url = f"https://api.apify.com/v2/actor-runs/{run_id}"
+                status_response = requests.get(status_url, params=params, timeout=10)
                 status_data = status_response.json()
 
                 if status_data['data']['status'] in ['SUCCEEDED', 'FAILED', 'ABORTED']:
@@ -329,7 +329,7 @@ class SCOUTAgent:
             # Get dataset items
             dataset_id = run_data['data']['defaultDatasetId']
             items_url = f"https://api.apify.com/v2/datasets/{dataset_id}/items"
-            items_response = requests.get(items_url, headers=headers, timeout=30)
+            items_response = requests.get(items_url, params=params, timeout=30)
             items_response.raise_for_status()
 
             return items_response.json()
