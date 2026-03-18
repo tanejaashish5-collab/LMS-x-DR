@@ -331,8 +331,7 @@ export default function Home() {
               <a href="#how" className="hover:text-[var(--accent-blue)] transition-colors">
                 Process
               </a>
-              <a href="https://notion.so/326b53df570b814d9b2bc5d27718f42a"
-                 target="_blank"
+              <a href="/dashboard"
                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-[var(--accent-blue)] to-[var(--accent-purple)] text-white font-medium hover:shadow-lg hover:shadow-[var(--accent-blue)]/20 transition-all">
                 Dashboard
               </a>

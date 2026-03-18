@@ -6,6 +6,7 @@ Autonomous agents that power the ATLAS system:
 - SCOUT: Opportunity discovery
 - FORGE: Landing page builder
 - MERCURY: Outreach automation
+- CLOSER: Sales pipeline manager
 - ARGUS: Metrics tracker
 - ATLAS: Main orchestrator
 """
@@ -14,6 +15,7 @@ from .vault import VAULTAgent, BudgetRequest, BudgetLimits
 from .scout import SCOUTAgent, Opportunity, FilterResult, ScoreResult
 from .forge import FORGEAgent, LandingPageRequest, LandingPageResult
 from .mercury import MERCURYAgent, DistributionRequest, DistributionResult, ChannelCopy
+from .closer import CLOSERAgent, QualificationResult, ProposalContent, PipelineSummary
 
 __all__ = [
     'VAULTAgent',
@@ -30,4 +32,8 @@ __all__ = [
     'DistributionRequest',
     'DistributionResult',
     'ChannelCopy',
+    'CLOSERAgent',
+    'QualificationResult',
+    'ProposalContent',
+    'PipelineSummary',
 ]

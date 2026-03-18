@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 ATLAS Main Orchestrator
-Coordinates all agents: SCOUT, VAULT, FORGE, MERCURY
+Coordinates all agents: SCOUT, VAULT, FORGE, MERCURY, CLOSER
 Pure Python - No n8n, No workflows, Just intelligent agents
 """
 
@@ -24,6 +24,7 @@ from agents.vault import VAULTAgent, BudgetRequest
 from agents.scout import SCOUTAgent
 from agents.forge import FORGEAgent, LandingPageRequest
 from agents.mercury import MERCURYAgent, DistributionRequest
+from agents.closer import CLOSERAgent
 
 # Third-party imports
 from supabase import create_client, Client
@@ -84,8 +85,9 @@ class ATLASOrchestrator:
         self.scout = SCOUTAgent()
         self.forge = FORGEAgent(vault_agent=self.vault)
         self.mercury = MERCURYAgent(vault_agent=self.vault)
+        self.closer = CLOSERAgent(vault_agent=self.vault)
 
-        logger.info("ATLAS Orchestrator initialized with all agents")
+        logger.info("ATLAS Orchestrator initialized with all agents (including CLOSER)")
 
     async def run_discovery_pipeline(self) -> Dict[str, Any]:
         """
@@ -252,8 +254,16 @@ class ATLASOrchestrator:
                     self._kill_experiment(decision['experiment_id'], decision['reason'])
                     results.append({"killed": decision['experiment_id']})
 
+            # Run CLOSER pipeline: qualify, propose, follow up
+            logger.info("Running CLOSER sales pipeline...")
+            closer_results = self.closer.run_pipeline()
+            results.append({"closer": closer_results})
+
+            # Get pipeline summary for briefing
+            pipeline_summary = self.closer.get_pipeline_summary()
+
             # Create daily briefing
-            briefing = self._create_briefing(experiments, opportunities, budget_status, decisions, results)
+            briefing = self._create_briefing(experiments, opportunities, budget_status, decisions, results, pipeline_summary)
 
             logger.info("Daily orchestration complete")
             return {
@@ -351,8 +361,22 @@ class ATLASOrchestrator:
 
         logger.info(f"Killed experiment {experiment_id}: {reason}")
 
-    def _create_briefing(self, experiments, opportunities, budget_status, decisions, results) -> str:
-        """Create daily briefing"""
+    def _create_briefing(self, experiments, opportunities, budget_status, decisions, results, pipeline_summary=None) -> str:
+        """Create daily briefing including sales pipeline status"""
+        # Build pipeline section
+        pipeline_section = ""
+        if pipeline_summary and 'error' not in pipeline_summary:
+            by_stage = pipeline_summary.get('by_stage', {})
+            pipeline_section = f"""
+## Sales Pipeline (CLOSER)
+- Total Deals: {pipeline_summary.get('total_deals', 0)}
+- Pipeline Value: ${pipeline_summary.get('total_pipeline_value', 0):,.2f} AUD
+- Closed Won: ${pipeline_summary.get('closed_won_value', 0):,.2f} AUD
+- Proposals Pending: {pipeline_summary.get('proposals_pending', 0)}
+- Follow-ups Due: {pipeline_summary.get('followups_due', 0)}
+- Stages: {', '.join(f'{k}: {v}' for k, v in by_stage.items())}
+"""
+
         briefing = f"""
 # ATLAS Daily Briefing
 Date: {datetime.now().strftime('%Y-%m-%d %H:%M')}
@@ -367,7 +391,7 @@ Date: {datetime.now().strftime('%Y-%m-%d %H:%M')}
 
 ## Top Opportunities: {len(opportunities)}
 {chr(10).join([f"- {o['title']} (Score: {o.get('sonnet_score', 'N/A')})" for o in opportunities[:3]])}
-
+{pipeline_section}
 ## Decisions Made: {len(decisions)}
 {chr(10).join([f"- {d['action']}: {d.get('reason', 'Strategic')}" for d in decisions])}
 
@@ -402,7 +426,7 @@ async def root():
         "system": "ATLAS Autonomous Business System",
         "version": "2.0",
         "status": "operational",
-        "agents": ["SCOUT", "VAULT", "FORGE", "MERCURY"],
+        "agents": ["SCOUT", "VAULT", "FORGE", "MERCURY", "CLOSER"],
         "message": "No n8n. No workflows. Just intelligent agents."
     }
 
@@ -421,7 +445,8 @@ async def get_status():
             "scout": "ready",
             "vault": "ready",
             "forge": "ready",
-            "mercury": "ready"
+            "mercury": "ready",
+            "closer": "ready"
         },
         "timestamp": datetime.now().isoformat()
     }
@@ -446,6 +471,105 @@ async def trigger_orchestration(background_tasks: BackgroundTasks):
     orchestrator = ATLASOrchestrator()
     background_tasks.add_task(orchestrator.run_daily_orchestration)
     return {"status": "orchestration started"}
+
+# ===========================================
+# CLOSER / Pipeline Endpoints
+# ===========================================
+
+@app.get("/api/pipeline")
+async def list_pipeline():
+    """List all pipeline entries"""
+    orchestrator = ATLASOrchestrator()
+    result = orchestrator.closer.supabase.table('atlas_pipeline').select(
+        '*, atlas_opportunities(title, target_vertical, sonnet_score)'
+    ).order('created_at', desc=True).execute()
+    return {"pipeline": result.data or [], "count": len(result.data or [])}
+
+
+@app.get("/api/pipeline/{pipeline_id}")
+async def get_pipeline_detail(pipeline_id: str):
+    """Get pipeline entry detail with proposals and outreach"""
+    orchestrator = ATLASOrchestrator()
+    sb = orchestrator.closer.supabase
+
+    entry = sb.table('atlas_pipeline').select(
+        '*, atlas_opportunities(*)'
+    ).eq('id', pipeline_id).execute()
+
+    if not entry.data:
+        raise HTTPException(status_code=404, detail="Pipeline entry not found")
+
+    proposals = sb.table('atlas_proposals').select('*').eq(
+        'pipeline_id', pipeline_id
+    ).order('created_at', desc=True).execute()
+
+    outreach = sb.table('atlas_outreach').select('*').eq(
+        'pipeline_id', pipeline_id
+    ).order('created_at', desc=True).execute()
+
+    comms = sb.table('atlas_communications').select('*').eq(
+        'pipeline_id', pipeline_id
+    ).order('created_at', desc=True).execute()
+
+    return {
+        "pipeline": entry.data[0],
+        "proposals": proposals.data or [],
+        "outreach": outreach.data or [],
+        "communications": comms.data or [],
+    }
+
+
+@app.post("/api/pipeline/{pipeline_id}/advance")
+async def advance_pipeline(pipeline_id: str):
+    """Advance pipeline entry to next stage"""
+    orchestrator = ATLASOrchestrator()
+    result = orchestrator.closer.advance_pipeline(pipeline_id)
+    if "error" in result:
+        raise HTTPException(status_code=400, detail=result["error"])
+    return result
+
+
+@app.get("/api/proposals")
+async def list_proposals():
+    """List all proposals"""
+    orchestrator = ATLASOrchestrator()
+    result = orchestrator.closer.supabase.table('atlas_proposals').select(
+        '*, atlas_pipeline(stage, company_name, deal_value)'
+    ).order('created_at', desc=True).execute()
+    return {"proposals": result.data or [], "count": len(result.data or [])}
+
+
+@app.get("/api/outreach")
+async def list_outreach():
+    """List all outreach emails"""
+    orchestrator = ATLASOrchestrator()
+    result = orchestrator.closer.supabase.table('atlas_outreach').select(
+        '*, atlas_pipeline(stage, company_name)'
+    ).order('created_at', desc=True).execute()
+    return {"outreach": result.data or [], "count": len(result.data or [])}
+
+
+@app.post("/api/closer/run")
+async def trigger_closer(background_tasks: BackgroundTasks):
+    """Manually trigger CLOSER pipeline"""
+    orchestrator = ATLASOrchestrator()
+    background_tasks.add_task(orchestrator.closer.run_pipeline)
+    return {"status": "closer pipeline started"}
+
+
+@app.get("/api/closer/summary")
+async def closer_summary():
+    """Get CLOSER pipeline summary"""
+    orchestrator = ATLASOrchestrator()
+    return orchestrator.closer.get_pipeline_summary()
+
+
+@app.get("/api/closer/report")
+async def closer_report():
+    """Get CLOSER daily report"""
+    orchestrator = ATLASOrchestrator()
+    return {"report": orchestrator.closer.get_daily_report()}
+
 
 @app.post("/webhook/budget-check")
 async def budget_check(request: Dict[str, Any]):
@@ -490,6 +614,16 @@ def run_scheduler():
         lambda: asyncio.run(orchestrator.run_daily_orchestration())
     )
 
+    # CLOSER pipeline: Daily at 8 AM (after orchestration completes)
+    schedule.every().day.at("08:00").do(
+        lambda: orchestrator.closer.run_pipeline()
+    )
+
+    # CLOSER follow-up check: Also at 2 PM for afternoon follow-ups
+    schedule.every().day.at("14:00").do(
+        lambda: orchestrator.closer._process_followups()
+    )
+
     while True:
         schedule.run_pending()
         time.sleep(60)
@@ -507,20 +641,28 @@ if __name__ == "__main__":
     print("=" * 60)
     print()
     print(" Agents:")
-    print("   • SCOUT   - Opportunity discovery")
-    print("   • VAULT   - Budget management ($250/mo)")
-    print("   • FORGE   - Landing page builder")
-    print("   • MERCURY - Multi-channel distribution")
+    print("   * SCOUT   - Opportunity discovery")
+    print("   * VAULT   - Budget management ($250/mo)")
+    print("   * FORGE   - Landing page builder")
+    print("   * MERCURY - Multi-channel distribution")
+    print("   * CLOSER  - Sales pipeline manager")
     print()
     print(" Endpoints:")
-    print("   • http://localhost:8000/             - System info")
-    print("   • http://localhost:8000/api/status   - Current status")
-    print("   • http://localhost:8000/api/discover - Run discovery")
-    print("   • http://localhost:8000/webhook/budget-check")
+    print("   * http://localhost:8000/             - System info")
+    print("   * http://localhost:8000/api/status   - Current status")
+    print("   * http://localhost:8000/api/discover - Run discovery")
+    print("   * http://localhost:8000/api/pipeline - Pipeline list")
+    print("   * http://localhost:8000/api/proposals - Proposals list")
+    print("   * http://localhost:8000/api/outreach - Outreach list")
+    print("   * http://localhost:8000/api/closer/run - Trigger CLOSER")
+    print("   * http://localhost:8000/api/closer/summary - Pipeline summary")
+    print("   * http://localhost:8000/webhook/budget-check")
     print()
     print(" Schedule:")
-    print("   • Discovery: Mon/Wed/Fri at 5:00 AM")
-    print("   • Orchestration: Daily at 7:00 AM")
+    print("   * Discovery: Mon/Wed/Fri at 5:00 AM")
+    print("   * Orchestration: Daily at 7:00 AM")
+    print("   * CLOSER Pipeline: Daily at 8:00 AM")
+    print("   * CLOSER Follow-ups: Daily at 2:00 PM")
     print("=" * 60)
 
     # Start scheduler in background

@@ -62,6 +62,7 @@ class AgentType(Enum):
     VAULT = "VAULT"
     FORGE = "FORGE"
     MERCURY = "MERCURY"
+    CLOSER = "CLOSER"
     ARGUS = "ARGUS"
 
 class ExperimentStatus(Enum):
