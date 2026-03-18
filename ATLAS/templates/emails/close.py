@@ -21,5 +21,5 @@ Looking forward to saving your team {hours_saved} hours a week.
 
 Ashish Taneja
 ForgeVoice Studio
-hello@forgevoicestudio.com""",
+ashish@forgevoice.studio""",
 }

@@ -25,5 +25,5 @@ Full proposal is attached. Happy to walk through it whenever suits you -- just r
 Talk soon,
 Ashish Taneja
 ForgeVoice Studio
-hello@forgevoicestudio.com""",
+ashish@forgevoice.studio""",
 }

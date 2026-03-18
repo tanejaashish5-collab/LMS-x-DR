@@ -60,7 +60,7 @@ CREATE TABLE IF NOT EXISTS atlas_outreach (
     subject TEXT,
     body TEXT,
     to_email TEXT,
-    from_email TEXT DEFAULT 'hello@forgevoicestudio.com',
+    from_email TEXT DEFAULT 'ashish@forgevoice.studio',
     sent_at TIMESTAMPTZ,
     opened_at TIMESTAMPTZ,
     replied_at TIMESTAMPTZ,

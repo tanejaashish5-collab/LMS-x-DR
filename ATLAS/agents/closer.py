@@ -21,6 +21,8 @@ from dataclasses import dataclass, field
 from supabase import create_client, Client
 import anthropic
 
+from services.email_service import get_email_service
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -145,6 +147,9 @@ class CLOSERAgent:
 
         # VAULT integration
         self.vault = vault_agent
+
+        # Email service (real sending via Resend)
+        self.email_service = get_email_service(self.supabase)
 
         logger.info("CLOSER initialized - Ready to close deals")
 
@@ -764,16 +769,44 @@ Make it specific to their situation. No generic filler. Sound human, not AI."""
                 body = body.replace('{' + key + '}', str(value))
 
             # Save outreach record
+            to_email = pipeline_entry.get('contact_email', '')
             outreach_data = {
                 'pipeline_id': pipeline_id,
                 'email_type': followup_type,
                 'subject': subject,
                 'body': body,
-                'to_email': pipeline_entry.get('contact_email', ''),
+                'to_email': to_email,
                 'status': 'draft',
             }
 
             self.supabase.table('atlas_outreach').insert(outreach_data).execute()
+
+            # Send real email via Resend
+            if to_email:
+                email_result = self.email_service.send_email_sync(
+                    to=to_email,
+                    subject=subject,
+                    body=body,
+                    pipeline_id=pipeline_id,
+                    email_type=followup_type,
+                )
+                if email_result.success:
+                    # Update outreach status to sent
+                    self.supabase.table('atlas_outreach').update({
+                        'status': 'sent',
+                        'sent_at': datetime.now().isoformat(),
+                    }).eq('pipeline_id', pipeline_id).eq(
+                        'email_type', followup_type
+                    ).execute()
+                    logger.info(
+                        f"CLOSER: {followup_type} SENT to {to_email} "
+                        f"(message_id={email_result.message_id})"
+                    )
+                else:
+                    logger.warning(
+                        f"CLOSER: {followup_type} send failed for {to_email}: "
+                        f"{email_result.error}"
+                    )
 
             # Update pipeline follow-up tracking
             self.supabase.table('atlas_pipeline').update({
@@ -862,16 +895,45 @@ Return JSON: {{"subject": "...", "body": "..."}}"""
                     "body": response_text,
                 }
 
+            to_email = pipeline_entry.get('contact_email', '')
+            email_subject = email_data.get('subject', '')
+            email_body = email_data.get('body', '')
+
             outreach_data = {
                 'pipeline_id': pipeline_id,
                 'email_type': followup_type,
-                'subject': email_data.get('subject', ''),
-                'body': email_data.get('body', ''),
-                'to_email': pipeline_entry.get('contact_email', ''),
+                'subject': email_subject,
+                'body': email_body,
+                'to_email': to_email,
                 'status': 'draft',
             }
 
             self.supabase.table('atlas_outreach').insert(outreach_data).execute()
+
+            # Send real email via Resend
+            if to_email:
+                email_result = self.email_service.send_email_sync(
+                    to=to_email,
+                    subject=email_subject,
+                    body=email_body,
+                    pipeline_id=pipeline_id,
+                    email_type=followup_type,
+                )
+                if email_result.success:
+                    self.supabase.table('atlas_outreach').update({
+                        'status': 'sent',
+                        'sent_at': datetime.now().isoformat(),
+                    }).eq('pipeline_id', pipeline_id).eq(
+                        'email_type', followup_type
+                    ).execute()
+                    logger.info(
+                        f"CLOSER: {followup_type} SENT via Haiku to {to_email} "
+                        f"(message_id={email_result.message_id})"
+                    )
+                else:
+                    logger.warning(
+                        f"CLOSER: {followup_type} Haiku send failed: {email_result.error}"
+                    )
 
             self.supabase.table('atlas_pipeline').update({
                 'followup_count': (pipeline_entry.get('followup_count', 0) + 1),

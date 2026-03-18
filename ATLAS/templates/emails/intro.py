@@ -19,5 +19,5 @@ Would it make sense to jump on a 15-minute call this week? I can show you what w
 Best,
 Ashish Taneja
 ForgeVoice Studio
-hello@forgevoicestudio.com""",
+ashish@forgevoice.studio""",
 }

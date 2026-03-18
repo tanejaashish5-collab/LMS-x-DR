@@ -13,19 +13,19 @@ class BrandIdentity:
     """Immutable brand identity for all outreach and client comms."""
 
     company_name: str = "ForgeVoice Studio"
-    website: str = "https://forgevoicestudio.com"
-    domain: str = "forgevoicestudio.com"
+    website: str = "https://forgevoice.studio"
+    domain: str = "forgevoice.studio"
 
     # Email addresses
-    email_primary: str = "hello@forgevoicestudio.com"
-    email_sales: str = "sales@forgevoicestudio.com"
-    email_support: str = "support@forgevoicestudio.com"
-    email_billing: str = "billing@forgevoicestudio.com"
+    email_primary: str = "ashish@forgevoice.studio"
+    email_sales: str = "sales@forgevoice.studio"
+    email_support: str = "support@forgevoice.studio"
+    email_billing: str = "billing@forgevoice.studio"
 
     # Founder info
     founder: str = "Ashish Taneja"
     founder_title: str = "Founder & CEO"
-    founder_email: str = "ashish@forgevoicestudio.com"
+    founder_email: str = "ashish@forgevoice.studio"
     founder_calendly: str = "https://calendly.com/ashishtaneja"
 
     # Location
@@ -59,9 +59,9 @@ BRAND = BrandIdentity()
 
 # Social links — separate dict to keep the frozen dataclass clean
 SOCIAL_LINKS: Dict[str, str] = {
-    "linkedin": "https://linkedin.com/company/forgevoicestudio",
+    "linkedin": "https://linkedin.com/company/forgevoice-studio",
     "twitter": "https://twitter.com/forgevoicestudio",
-    "github": "https://github.com/forgevoicestudio",
+    "github": "https://github.com/forgevoice-studio",
 }
 
 # Payment methods accepted
@@ -73,8 +73,8 @@ PAYMENT_METHODS: List[str] = [
 
 # Legal boilerplate
 LEGAL = {
-    "terms_url": "https://forgevoicestudio.com/terms",
-    "privacy_url": "https://forgevoicestudio.com/privacy",
+    "terms_url": "https://forgevoice.studio/terms",
+    "privacy_url": "https://forgevoice.studio/privacy",
     "refund_policy": (
         "Full refund within 7 days if we haven't started building. "
         "50% refund if first draft has been delivered but doesn't meet "

@@ -68,7 +68,7 @@ DAILY_REPORT = ReportConfig(
     report_id="atlas_daily",
     name="ATLAS Daily Operations Report",
     frequency=ReportFrequency.DAILY,
-    recipients=["ashish@forgevoicestudio.com"],
+    recipients=["ashish@forgevoice.studio"],
     send_channel="email",
     metrics=[
         # Scout metrics
@@ -180,7 +180,7 @@ WEEKLY_REPORT = ReportConfig(
     report_id="atlas_weekly",
     name="ATLAS Weekly Business Report",
     frequency=ReportFrequency.WEEKLY,
-    recipients=["ashish@forgevoicestudio.com"],
+    recipients=["ashish@forgevoice.studio"],
     send_channel="email",
     metrics=[
         MetricDefinition(
@@ -267,7 +267,7 @@ MONTHLY_REPORT = ReportConfig(
     report_id="atlas_monthly",
     name="ATLAS Monthly Executive Summary",
     frequency=ReportFrequency.MONTHLY,
-    recipients=["ashish@forgevoicestudio.com"],
+    recipients=["ashish@forgevoice.studio"],
     send_channel="email",
     metrics=[
         MetricDefinition(

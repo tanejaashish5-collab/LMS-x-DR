@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import {
   getDashboardStats,
   getTopOpportunities,
@@ -179,7 +181,10 @@ export default async function DashboardOverview() {
                     </div>
                     {log.output && (
                       <div className="text-xs text-[var(--text-muted)] truncate mt-0.5">
-                        {log.output.length > 80 ? log.output.slice(0, 80) + "..." : log.output}
+                        {(() => {
+                          const txt = typeof log.output === "string" ? log.output : JSON.stringify(log.output);
+                          return txt.length > 80 ? txt.slice(0, 80) + "..." : txt;
+                        })()}
                       </div>
                     )}
                     <div className="flex items-center gap-2 mt-1">

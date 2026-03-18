@@ -24,6 +24,8 @@ from dataclasses import dataclass
 from supabase import create_client, Client
 import anthropic
 
+from services.email_service import get_email_service
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -91,7 +93,7 @@ class MERCURYAgent:
     REDDIT_CONFIG = {
         'client_id': os.getenv('REDDIT_CLIENT_ID', 'CONFIGURE_ME'),
         'client_secret': os.getenv('REDDIT_CLIENT_SECRET', 'CONFIGURE_ME'),
-        'user_agent': os.getenv('REDDIT_USER_AGENT', 'ATLAS-MERCURY/1.0'),
+        'user_agent': os.getenv('REDDIT_USER_AGENT', ''),
         'username': os.getenv('REDDIT_USERNAME', 'CONFIGURE_ME'),
         'password': os.getenv('REDDIT_PASSWORD', 'CONFIGURE_ME')
     }
@@ -153,6 +155,9 @@ class MERCURYAgent:
 
         # VAULT integration
         self.vault = vault_agent
+
+        # Email service (real sending via Resend)
+        self.email_service = get_email_service(self.supabase)
 
         logger.info("MERCURY initialized - Ready to distribute landing pages")
 
@@ -661,7 +666,7 @@ OUTPUT FORMAT (JSON):
         landing_page_url: str
     ) -> Dict[str, Any]:
         """
-        Send email via n8n webhook
+        Send email via Resend API
 
         Args:
             copy: ChannelCopy with email content
@@ -670,14 +675,57 @@ OUTPUT FORMAT (JSON):
         Returns:
             Dict with success, cost, error
         """
-        # Simulate email sending (n8n webhook would be called here)
-        logger.warning("MERCURY: Email sending via n8n webhook - simulating")
+        try:
+            # Build email body with landing page link
+            email_body = f"{copy.body}\n\n{copy.cta}\n{landing_page_url}"
 
-        return {
-            'success': True,
-            'cost': 0.0,  # Free via n8n
-            'simulated': True
-        }
+            # Determine recipient from copy metadata
+            to_email = (copy.metadata or {}).get('to_email', '')
+
+            if not to_email:
+                logger.warning(
+                    "MERCURY: No recipient in copy metadata, "
+                    "email queued as draft only"
+                )
+                return {
+                    'success': True,
+                    'cost': 0.0,
+                    'simulated': True,
+                    'message': 'No recipient address -- queued as draft',
+                }
+
+            result = self.email_service.send_email_sync(
+                to=to_email,
+                subject=copy.headline,
+                body=email_body,
+                email_type='mercury_outreach',
+            )
+
+            if result.success:
+                logger.info(
+                    f"MERCURY: Email sent to {to_email} "
+                    f"(message_id={result.message_id})"
+                )
+                return {
+                    'success': True,
+                    'cost': 0.0,
+                    'post_url': f'email:{result.message_id}',
+                }
+            else:
+                logger.error(f"MERCURY: Email send failed: {result.error}")
+                return {
+                    'success': False,
+                    'cost': 0.0,
+                    'error': result.error or 'Unknown send error',
+                }
+
+        except Exception as e:
+            logger.error(f"MERCURY: Email sending error: {e}")
+            return {
+                'success': False,
+                'cost': 0.0,
+                'error': str(e),
+            }
 
     def _create_meta_ad(
         self,

@@ -128,7 +128,7 @@
     },
     {
       "parameters": {
-        "fromEmail": "atlas@forgevoicestudio.com",
+        "fromEmail": "atlas@forgevoice.studio",
         "toEmail": "taneja.ashish5@gmail.com",
         "subject": "[ATLAS Daily] {{$now.format('YYYY-MM-DD')}} \u2014 {{$node[\"Get Briefing from Supabase\"].json[\"summary\"]}}",
         "html": "={{$node[\"Format Briefing with Claude\"].json[\"content\"][0][\"text\"]}}",

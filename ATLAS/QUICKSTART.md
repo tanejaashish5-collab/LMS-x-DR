@@ -57,7 +57,7 @@ Should return: `{"status":"approved","newBalance":240}`
 
 ### Minute 20-25: Configure ForgeVoice Website
 
-The blueprint says to fix these issues on forgevoicestudio.com:
+The blueprint says to fix these issues on forgevoice.studio:
 1. Remove "0 workflows audited" metrics
 2. Add 3 service cards for target verticals
 3. Create blog section
