@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prestige Property Group | Canberra's Premium Property Specialists</title>
+    <meta name="description" content="Canberra's leading property specialists. $180M+ in sales, 98% auction clearance rate. Premium residential sales across Inner North, Inner South, Woden Valley & Belconnen.">
+    <meta property="og:title" content="Prestige Property Group | Canberra's Premium Property Specialists">
+    <meta property="og:description" content="Premium residential sales in Canberra. $180M+ sold. 98% auction clearance. Free property valuations.">
+    <style>
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --accent: #C8A84E;
+            --accent-light: #DAC06A;
+            --accent-dark: #A88B35;
+            --bg: #0A0A0A;
+            --bg-card: #141414;
+            --bg-elevated: #1E1E1E;
+            --text: #FAFAFA;
+            --text-muted: #999;
+            --border: #222;
+            --radius: 12px;
+        }
+        html { scroll-behavior: smooth; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg); color: var(--text); line-height: 1.6; overflow-x: hidden;
+        }
+        a { color: inherit; text-decoration: none; }
+
+        nav {
+            position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+            padding: 1rem 2rem;
+            background: rgba(10, 10, 10, 0.85); backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border);
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .logo { font-size: 1.25rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; }
+        .logo span { color: var(--accent); }
+        .nav-links { display: flex; gap: 2rem; align-items: center; }
+        .nav-links a { color: var(--text-muted); font-size: 0.9rem; transition: color 0.2s; letter-spacing: 0.02em; }
+        .nav-links a:hover { color: var(--text); }
+        .nav-cta {
+            background: var(--accent); color: #0A0A0A !important; padding: 0.5rem 1.25rem;
+            border-radius: 8px; font-weight: 700; font-size: 0.9rem; transition: all 0.2s;
+        }
+        .nav-cta:hover { background: var(--accent-dark); transform: translateY(-1px); }
+
+        .container { max-width: 1200px; margin: 0 auto; padding: 0 1.5rem; }
+
+        /* Hero */
+        .hero {
+            padding: 10rem 0 6rem; text-align: center; position: relative; overflow: hidden;
+        }
+        .hero::before {
+            content: ''; position: absolute; top: -200px; left: 50%; transform: translateX(-50%);
+            width: 1200px; height: 1200px;
+            background: radial-gradient(ellipse, rgba(200, 168, 78, 0.06) 0%, transparent 60%);
+            pointer-events: none;
+        }
+        .hero-badge {
+            display: inline-flex; align-items: center; gap: 0.5rem;
+            background: rgba(200, 168, 78, 0.08); border: 1px solid rgba(200, 168, 78, 0.2);
+            padding: 0.4rem 1rem; border-radius: 50px;
+            font-size: 0.85rem; color: var(--accent); margin-bottom: 1.5rem;
+            text-transform: uppercase; letter-spacing: 0.05em;
+        }
+        .hero-badge::before { content: ''; width: 6px; height: 6px; background: var(--accent); border-radius: 50%; animation: pulse 2s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+        .hero h1 {
+            font-size: clamp(2.5rem, 6vw, 4.5rem); font-weight: 800;
+            line-height: 1.1; letter-spacing: -0.02em; margin-bottom: 1.5rem;
+            background: linear-gradient(135deg, #FAFAFA 0%, #888 100%);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        .hero p { font-size: 1.25rem; color: var(--text-muted); max-width: 620px; margin: 0 auto 2.5rem; }
+        .hero-cta {
+            display: inline-flex; align-items: center; gap: 0.75rem;
+            background: var(--accent); color: #0A0A0A; padding: 1rem 2.5rem;
+            border-radius: 12px; font-size: 1.1rem; font-weight: 700;
+            transition: all 0.3s; border: none; cursor: pointer;
+            box-shadow: 0 0 40px rgba(200, 168, 78, 0.2);
+        }
+        .hero-cta:hover { background: var(--accent-dark); transform: translateY(-2px); box-shadow: 0 0 60px rgba(200, 168, 78, 0.3); }
+        .hero-cta svg { width: 20px; height: 20px; }
+        .stats-row {
+            display: flex; justify-content: center; gap: 3rem; margin-top: 4rem; flex-wrap: wrap;
+        }
+        .stat-item { text-align: center; }
+        .stat-item .number { font-size: 2rem; font-weight: 800; color: var(--accent); }
+        .stat-item .label { font-size: 0.85rem; color: var(--text-muted); margin-top: 0.25rem; }
+
+        section { padding: 5rem 0; }
+        .section-label {
+            text-transform: uppercase; font-size: 0.75rem; font-weight: 600;
+            letter-spacing: 0.15em; color: var(--accent); margin-bottom: 0.75rem;
+        }
+        .section-title { font-size: clamp(2rem, 4vw, 3rem); font-weight: 800; letter-spacing: -0.02em; margin-bottom: 1rem; }
+        .section-subtitle { font-size: 1.1rem; color: var(--text-muted); max-width: 600px; }
+        .section-header { text-align: center; margin-bottom: 4rem; }
+        .section-header .section-subtitle { margin: 0 auto; }
+
+        /* Listings */
+        .listings { background: var(--bg-card); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+        .listing-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 1.5rem;
+        }
+        .listing-card {
+            border-radius: var(--radius); background: var(--bg); border: 1px solid var(--border);
+            overflow: hidden; transition: all 0.3s;
+        }
+        .listing-card:hover { border-color: rgba(200, 168, 78, 0.4); transform: translateY(-4px); }
+        .listing-img {
+            height: 220px; position: relative; overflow: hidden;
+            background: linear-gradient(135deg, var(--bg-elevated) 0%, var(--bg-card) 100%);
+            display: flex; align-items: center; justify-content: center;
+        }
+        .listing-img::after {
+            content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 80px;
+            background: linear-gradient(transparent, var(--bg));
+        }
+        .listing-placeholder {
+            font-size: 3rem; opacity: 0.3;
+        }
+        .listing-status {
+            position: absolute; top: 1rem; left: 1rem;
+            padding: 0.25rem 0.75rem; border-radius: 50px;
+            font-size: 0.7rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.05em; z-index: 1;
+        }
+        .listing-status.auction { background: var(--accent); color: #0A0A0A; }
+        .listing-status.new { background: #10B981; color: white; }
+        .listing-status.eoi { background: #8B5CF6; color: white; }
+        .listing-price {
+            position: absolute; bottom: 1rem; right: 1rem;
+            font-size: 1.5rem; font-weight: 800; color: var(--accent); z-index: 1;
+        }
+        .listing-info { padding: 1.5rem; }
+        .listing-address { font-size: 1.1rem; font-weight: 700; margin-bottom: 0.25rem; }
+        .listing-suburb { font-size: 0.9rem; color: var(--accent); margin-bottom: 0.75rem; }
+        .listing-features {
+            display: flex; gap: 1.5rem; font-size: 0.85rem; color: var(--text-muted);
+        }
+        .listing-feature { display: flex; align-items: center; gap: 0.35rem; }
+
+        /* Agents */
+        .agent-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 2rem;
+        }
+        .agent-card {
+            padding: 2.5rem; border-radius: var(--radius); background: var(--bg-card);
+            border: 1px solid var(--border); display: flex; gap: 1.5rem; align-items: flex-start;
+            transition: all 0.3s;
+        }
+        .agent-card:hover { border-color: rgba(200, 168, 78, 0.3); }
+        .agent-avatar {
+            width: 72px; height: 72px; border-radius: 50%; flex-shrink: 0;
+            background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.5rem; font-weight: 700; color: #0A0A0A;
+        }
+        .agent-info { flex: 1; }
+        .agent-name { font-size: 1.2rem; font-weight: 700; margin-bottom: 0.15rem; }
+        .agent-role { color: var(--accent); font-size: 0.9rem; margin-bottom: 0.75rem; }
+        .agent-bio { font-size: 0.9rem; color: var(--text-muted); margin-bottom: 1rem; }
+        .agent-stats { display: flex; gap: 1.5rem; }
+        .agent-stat-label { font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+        .agent-stat-value { font-size: 1.1rem; font-weight: 700; color: var(--accent); }
+
+        /* Suburbs */
+        .suburbs { background: var(--bg-card); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+        .suburb-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem;
+        }
+        .suburb-card {
+            padding: 2rem; border-radius: var(--radius); background: var(--bg);
+            border: 1px solid var(--border); transition: all 0.3s;
+        }
+        .suburb-card:hover { border-color: rgba(200, 168, 78, 0.4); transform: translateY(-2px); }
+        .suburb-name { font-size: 1.15rem; font-weight: 700; margin-bottom: 0.25rem; }
+        .suburb-desc { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem; }
+        .suburb-stats { display: flex; gap: 1.5rem; }
+        .suburb-stat .s-label { font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+        .suburb-stat .s-value { font-size: 1rem; font-weight: 700; }
+
+        /* Recent Sales Ticker */
+        .ticker {
+            overflow: hidden; padding: 1rem 0;
+            border-bottom: 1px solid var(--border);
+        }
+        .ticker-track {
+            display: flex; gap: 3rem; animation: scroll 30s linear infinite;
+            white-space: nowrap;
+        }
+        @keyframes scroll {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
+        }
+        .ticker-item { display: flex; gap: 0.75rem; align-items: center; font-size: 0.85rem; }
+        .ticker-address { font-weight: 600; }
+        .ticker-price { color: var(--accent); font-weight: 700; }
+        .ticker-suburb { color: var(--text-muted); }
+        .ticker-divider { color: var(--border); }
+
+        /* Testimonials */
+        .testimonial-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.5rem;
+        }
+        .testimonial-card {
+            padding: 2rem; border-radius: var(--radius); background: var(--bg-card);
+            border: 1px solid var(--border);
+        }
+        .stars { color: #FBBF24; font-size: 1.1rem; margin-bottom: 1rem; letter-spacing: 2px; }
+        .testimonial-card blockquote { font-size: 1rem; line-height: 1.7; margin-bottom: 1.5rem; font-style: italic; color: var(--text-muted); }
+        .testimonial-author { display: flex; align-items: center; gap: 0.75rem; }
+        .testimonial-avatar {
+            width: 40px; height: 40px; border-radius: 50%; background: var(--accent);
+            display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.85rem; color: #0A0A0A;
+        }
+        .testimonial-name { font-weight: 600; font-size: 0.9rem; }
+        .testimonial-role { font-size: 0.8rem; color: var(--text-muted); }
+
+        /* CTA */
+        .cta-section { padding: 6rem 0; text-align: center; }
+        .cta-box {
+            max-width: 700px; margin: 0 auto; padding: 4rem;
+            border-radius: 20px; background: var(--bg-card);
+            border: 1px solid var(--border); position: relative; overflow: hidden;
+        }
+        .cta-box::before {
+            content: ''; position: absolute; top: -50%; left: -50%;
+            width: 200%; height: 200%;
+            background: radial-gradient(circle, rgba(200, 168, 78, 0.06) 0%, transparent 50%);
+        }
+        .cta-box h2 { font-size: 2.25rem; font-weight: 800; margin-bottom: 1rem; position: relative; }
+        .cta-box p { color: var(--text-muted); margin-bottom: 2rem; font-size: 1.1rem; position: relative; }
+        .cta-btn {
+            display: inline-flex; align-items: center; gap: 0.75rem;
+            background: var(--accent); color: #0A0A0A; padding: 1rem 2.5rem;
+            border-radius: 12px; font-size: 1.1rem; font-weight: 700;
+            border: none; cursor: pointer; transition: all 0.3s; position: relative;
+            box-shadow: 0 0 40px rgba(200, 168, 78, 0.2);
+        }
+        .cta-btn:hover { background: var(--accent-dark); transform: translateY(-2px); }
+        .cta-note { font-size: 0.85rem; color: var(--text-muted); margin-top: 1rem; position: relative; }
+
+        footer {
+            padding: 3rem 0; text-align: center; border-top: 1px solid var(--border);
+            color: var(--text-muted); font-size: 0.85rem;
+        }
+        footer a { color: var(--accent-light); }
+        footer a:hover { text-decoration: underline; }
+        .footer-brand { font-weight: 600; color: var(--text); margin-bottom: 0.5rem; letter-spacing: 0.05em; text-transform: uppercase; }
+
+        @media (max-width: 768px) {
+            nav { padding: 0.75rem 1rem; }
+            .nav-links { display: none; }
+            .hero { padding: 7rem 0 4rem; }
+            .stats-row { gap: 1.5rem; }
+            .stat-item .number { font-size: 1.5rem; }
+            section { padding: 3.5rem 0; }
+            .cta-box { padding: 2.5rem 1.5rem; }
+            .listing-grid { grid-template-columns: 1fr; }
+            .agent-card { flex-direction: column; align-items: center; text-align: center; }
+            .agent-stats { justify-content: center; }
+        }
+
+        .fade-in { opacity: 0; transform: translateY(20px); transition: all 0.6s ease-out; }
+        .fade-in.visible { opacity: 1; transform: translateY(0); }
+    </style>
+</head>
+<body>
+    <nav>
+        <div class="logo">Prestige <span>Property</span></div>
+        <div class="nav-links">
+            <a href="#listings">Listings</a>
+            <a href="#agents">Agents</a>
+            <a href="#suburbs-section">Suburbs</a>
+            <a href="#reviews">Reviews</a>
+            <a href="#valuation" class="nav-cta">Free Valuation</a>
+        </div>
+    </nav>
+
+    <section class="hero">
+        <div class="container">
+            <div class="hero-badge">Canberra's #1 Boutique Agency</div>
+            <h1>Canberra's Premium<br>Property Specialists</h1>
+            <p>We don't just sell homes. We deliver premium outcomes through strategic marketing, deep local knowledge, and a relentless commitment to exceeding expectations.</p>
+            <a href="#valuation" class="hero-cta">
+                Get Your Free Property Valuation
+                <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z"/></svg>
+            </a>
+            <div class="stats-row">
+                <div class="stat-item"><div class="number">$180M+</div><div class="label">Total Sales</div></div>
+                <div class="stat-item"><div class="number">98%</div><div class="label">Auction Clearance</div></div>
+                <div class="stat-item"><div class="number">30+</div><div class="label">Years Combined</div></div>
+                <div class="stat-item"><div class="number">4.9</div><div class="label">Google Rating</div></div>
+            </div>
+        </div>
+    </section>
+
+    <div class="ticker">
+        <div class="ticker-track">
+            <div class="ticker-item"><span class="ticker-address">47 Savige St</span><span class="ticker-suburb">Griffith</span><span class="ticker-price">SOLD $2,180,000</span></div>
+            <div class="ticker-divider">|</div>
+            <div class="ticker-item"><span class="ticker-address">12 Brereton St</span><span class="ticker-suburb">Garran</span><span class="ticker-price">SOLD $1,450,000</span></div>
+            <div class="ticker-divider">|</div>
+            <div class="ticker-item"><span class="ticker-address">8/15 Coranderrk St</span><span class="ticker-suburb">Braddon</span><span class="ticker-price">SOLD $875,000</span></div>
+            <div class="ticker-divider">|</div>
+            <div class="ticker-item"><span class="ticker-address">3 Investigator St</span><span class="ticker-suburb">Red Hill</span><span class="ticker-price">SOLD $2,650,000</span></div>
+            <div class="ticker-divider">|</div>
+            <div class="ticker-item"><span class="ticker-address">22 Novar St</span><span class="ticker-suburb">Yarralumla</span><span class="ticker-price">SOLD $3,100,000</span></div>
+            <div class="ticker-divider">|</div>
+            <div class="ticker-item"><span class="ticker-address">5/9 Macpherson St</span><span class="ticker-suburb">O'Connor</span><span class="ticker-price">SOLD $920,000</span></div>
+            <div class="ticker-divider">|</div>
+            <!-- Duplicate for seamless loop -->
+            <div class="ticker-item"><span class="ticker-address">47 Savige St</span><span class="ticker-suburb">Griffith</span><span class="ticker-price">SOLD $2,180,000</span></div>
+            <div class="ticker-divider">|</div>
+            <div class="ticker-item"><span class="ticker-address">12 Brereton St</span><span class="ticker-suburb">Garran</span><span class="ticker-price">SOLD $1,450,000</span></div>
+            <div class="ticker-divider">|</div>
+            <div class="ticker-item"><span class="ticker-address">8/15 Coranderrk St</span><span class="ticker-suburb">Braddon</span><span class="ticker-price">SOLD $875,000</span></div>
+            <div class="ticker-divider">|</div>
+            <div class="ticker-item"><span class="ticker-address">3 Investigator St</span><span class="ticker-suburb">Red Hill</span><span class="ticker-price">SOLD $2,650,000</span></div>
+            <div class="ticker-divider">|</div>
+            <div class="ticker-item"><span class="ticker-address">22 Novar St</span><span class="ticker-suburb">Yarralumla</span><span class="ticker-price">SOLD $3,100,000</span></div>
+            <div class="ticker-divider">|</div>
+            <div class="ticker-item"><span class="ticker-address">5/9 Macpherson St</span><span class="ticker-suburb">O'Connor</span><span class="ticker-price">SOLD $920,000</span></div>
+        </div>
+    </div>
+
+    <section class="listings" id="listings">
+        <div class="container">
+            <div class="section-header">
+                <div class="section-label">Featured Listings</div>
+                <h2 class="section-title">Currently on the Market</h2>
+                <p class="section-subtitle">Hand-selected properties from Canberra's most sought-after suburbs.</p>
+            </div>
+            <div class="listing-grid fade-in">
+                <div class="listing-card">
+                    <div class="listing-img">
+                        <div class="listing-status auction">Auction 29 Mar</div>
+                        <div class="listing-placeholder">&#127968;</div>
+                        <div class="listing-price">$850K+</div>
+                    </div>
+                    <div class="listing-info">
+                        <div class="listing-address">42 Macarthur Avenue</div>
+                        <div class="listing-suburb">O'Connor, ACT 2602</div>
+                        <div class="listing-features">
+                            <div class="listing-feature">&#128716; 3 Bed</div>
+                            <div class="listing-feature">&#128705; 2 Bath</div>
+                            <div class="listing-feature">&#128663; 2 Car</div>
+                            <div class="listing-feature">&#128207; 680m&sup2;</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="listing-card">
+                    <div class="listing-img">
+                        <div class="listing-status new">Just Listed</div>
+                        <div class="listing-placeholder">&#127970;</div>
+                        <div class="listing-price">$1.2M+</div>
+                    </div>
+                    <div class="listing-info">
+                        <div class="listing-address">17 National Circuit</div>
+                        <div class="listing-suburb">Forrest, ACT 2603</div>
+                        <div class="listing-features">
+                            <div class="listing-feature">&#128716; 4 Bed</div>
+                            <div class="listing-feature">&#128705; 3 Bath</div>
+                            <div class="listing-feature">&#128663; 2 Car</div>
+                            <div class="listing-feature">&#128207; 920m&sup2;</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="listing-card">
+                    <div class="listing-img">
+                        <div class="listing-status eoi">Expressions of Interest</div>
+                        <div class="listing-placeholder">&#127969;</div>
+                        <div class="listing-price">$2.1M+</div>
+                    </div>
+                    <div class="listing-info">
+                        <div class="listing-address">8 Mugga Way</div>
+                        <div class="listing-suburb">Red Hill, ACT 2603</div>
+                        <div class="listing-features">
+                            <div class="listing-feature">&#128716; 5 Bed</div>
+                            <div class="listing-feature">&#128705; 4 Bath</div>
+                            <div class="listing-feature">&#128663; 3 Car</div>
+                            <div class="listing-feature">&#128207; 1,450m&sup2;</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="agents">
+        <div class="container">
+            <div class="section-header">
+                <div class="section-label">Meet Our Agents</div>
+                <h2 class="section-title">Canberra's Most Trusted Team</h2>
+                <p class="section-subtitle">Deep local knowledge, proven negotiation skills, and a genuine passion for achieving the best result for every client.</p>
+            </div>
+            <div class="agent-grid fade-in">
+                <div class="agent-card">
+                    <div class="agent-avatar">MH</div>
+                    <div class="agent-info">
+                        <div class="agent-name">Marcus Hartley</div>
+                        <div class="agent-role">Principal &amp; Lead Agent</div>
+                        <div class="agent-bio">18 years selling premium Canberra property. Known for record-breaking auction results in the Inner South. Former property valuer with an eye for what buyers will pay.</div>
+                        <div class="agent-stats">
+                            <div><div class="agent-stat-label">Sold</div><div class="agent-stat-value">$120M+</div></div>
+                            <div><div class="agent-stat-label">Clearance</div><div class="agent-stat-value">99%</div></div>
+                            <div><div class="agent-stat-label">Years</div><div class="agent-stat-value">18</div></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="agent-card">
+                    <div class="agent-avatar">SK</div>
+                    <div class="agent-info">
+                        <div class="agent-name">Sophie Kim</div>
+                        <div class="agent-role">Senior Sales Agent</div>
+                        <div class="agent-bio">Specialist in the Inner North and Belconnen corridor. Fluent in Korean and Mandarin. Built a reputation for transparent communication and exceeding price guides.</div>
+                        <div class="agent-stats">
+                            <div><div class="agent-stat-label">Sold</div><div class="agent-stat-value">$60M+</div></div>
+                            <div><div class="agent-stat-label">Clearance</div><div class="agent-stat-value">97%</div></div>
+                            <div><div class="agent-stat-label">Years</div><div class="agent-stat-value">12</div></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="suburbs" id="suburbs-section">
+        <div class="container">
+            <div class="section-header">
+                <div class="section-label">Local Expertise</div>
+                <h2 class="section-title">We Know Every Street</h2>
+                <p class="section-subtitle">Four core regions, hundreds of sales, unmatched local knowledge.</p>
+            </div>
+            <div class="suburb-grid fade-in">
+                <div class="suburb-card">
+                    <div class="suburb-name">Inner North</div>
+                    <div class="suburb-desc">Braddon, Turner, O'Connor, Ainslie, Dickson. The heartbeat of Canberra living &mdash; walkable, vibrant, in-demand.</div>
+                    <div class="suburb-stats">
+                        <div class="suburb-stat"><div class="s-label">Median House</div><div class="s-value">$1.15M</div></div>
+                        <div class="suburb-stat"><div class="s-label">Our Sales</div><div class="s-value">85+</div></div>
+                    </div>
+                </div>
+                <div class="suburb-card">
+                    <div class="suburb-name">Inner South</div>
+                    <div class="suburb-desc">Griffith, Red Hill, Forrest, Narrabundah, Kingston. Canberra's prestige corridor &mdash; embassies, heritage, and premium homes.</div>
+                    <div class="suburb-stats">
+                        <div class="suburb-stat"><div class="s-label">Median House</div><div class="s-value">$1.85M</div></div>
+                        <div class="suburb-stat"><div class="s-label">Our Sales</div><div class="s-value">120+</div></div>
+                    </div>
+                </div>
+                <div class="suburb-card">
+                    <div class="suburb-name">Woden Valley</div>
+                    <div class="suburb-desc">Garran, Hughes, Curtin, Lyons. Family-friendly with excellent schools, parks, and hospital access.</div>
+                    <div class="suburb-stats">
+                        <div class="suburb-stat"><div class="s-label">Median House</div><div class="s-value">$1.05M</div></div>
+                        <div class="suburb-stat"><div class="s-label">Our Sales</div><div class="s-value">60+</div></div>
+                    </div>
+                </div>
+                <div class="suburb-card">
+                    <div class="suburb-name">Belconnen</div>
+                    <div class="suburb-desc">Belconnen, Bruce, Cook, Macquarie. Growing fast with lakeside living, university precinct, and new developments.</div>
+                    <div class="suburb-stats">
+                        <div class="suburb-stat"><div class="s-label">Median House</div><div class="s-value">$880K</div></div>
+                        <div class="suburb-stat"><div class="s-label">Our Sales</div><div class="s-value">45+</div></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="reviews">
+        <div class="container">
+            <div class="section-header">
+                <div class="section-label">Client Testimonials</div>
+                <h2 class="section-title">What Our Clients Say</h2>
+            </div>
+            <div class="testimonial-grid fade-in">
+                <div class="testimonial-card">
+                    <div class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+                    <blockquote>"Marcus exceeded our reserve by $280,000 at auction. His reading of the market and buyer engagement strategy was masterful. Sold in 3 weeks from listing. Cannot recommend enough."</blockquote>
+                    <div class="testimonial-author">
+                        <div class="testimonial-avatar">PW</div>
+                        <div>
+                            <div class="testimonial-name">Peter &amp; Wei L.</div>
+                            <div class="testimonial-role">Vendors, Griffith</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="testimonial-card">
+                    <div class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+                    <blockquote>"Sophie found us our dream home in O'Connor before it even hit the market. Her network and relationships with other agents gave us an advantage no one else could. We're forever grateful."</blockquote>
+                    <div class="testimonial-author">
+                        <div class="testimonial-avatar">KT</div>
+                        <div>
+                            <div class="testimonial-name">Karen T.</div>
+                            <div class="testimonial-role">Buyer, O'Connor</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="testimonial-card">
+                    <div class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+                    <blockquote>"Sold our family home of 25 years. Emotional process, but the team handled everything with professionalism and care. The marketing was outstanding and the result spoke for itself."</blockquote>
+                    <div class="testimonial-author">
+                        <div class="testimonial-avatar">RB</div>
+                        <div>
+                            <div class="testimonial-name">Robert B.</div>
+                            <div class="testimonial-role">Vendor, Garran</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="cta-section" id="valuation">
+        <div class="container">
+            <div class="cta-box fade-in">
+                <h2>Get Your Free Property Valuation</h2>
+                <p>Wondering what your home is worth in today's market? Our agents will provide a detailed, obligation-free appraisal based on comparable recent sales and current buyer demand.</p>
+                <a href="https://forgevoicestudio.com"><button class="cta-btn">
+                    Request Your Free Valuation
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z"/></svg>
+                </button></a>
+                <p class="cta-note">100% confidential. No obligation. Response within 24 hours.</p>
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        <div class="container">
+            <div class="footer-brand">Prestige Property Group</div>
+            <p style="margin-bottom: 1rem;">Premium property specialists &mdash; Canberra, ACT</p>
+            <p>Built by <a href="https://forgevoicestudio.com" target="_blank">ForgeVoice Studio</a> &nbsp;|&nbsp; <a href="https://forgevoicestudio.com">forgevoicestudio.com</a></p>
+        </div>
+    </footer>
+
+    <script>
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => { if (entry.isIntersecting) entry.target.classList.add('visible'); });
+        }, { threshold: 0.1 });
+        document.querySelectorAll('.fade-in').forEach(el => observer.observe(el));
+
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function(e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            });
+        });
+
+        window.addEventListener('scroll', () => {
+            const nav = document.querySelector('nav');
+            nav.style.background = window.scrollY > 50 ? 'rgba(10, 10, 10, 0.95)' : 'rgba(10, 10, 10, 0.85)';
+        });
+    </script>
+</body>
+</html>

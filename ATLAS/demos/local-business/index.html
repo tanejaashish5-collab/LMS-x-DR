@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Canberra Mobile Mechanic | We Come to You</title>
+    <meta name="description" content="Professional mobile mechanic service in Canberra. Oil changes, brake repair, diagnostics & fleet maintenance. Same-day service, 4.9-star rating. We come to you.">
+    <meta property="og:title" content="Canberra Mobile Mechanic | We Come to You">
+    <meta property="og:description" content="Professional mobile auto repair at your home or office. 500+ vehicles serviced. Same-day availability.">
+    <style>
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --accent: #3B82F6;
+            --accent-light: #60A5FA;
+            --accent-dark: #2563EB;
+            --bg: #0A0F1A;
+            --bg-card: #111827;
+            --bg-elevated: #1F2937;
+            --text: #F9FAFB;
+            --text-muted: #9CA3AF;
+            --border: #1F2937;
+            --radius: 12px;
+        }
+        html { scroll-behavior: smooth; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+        a { color: inherit; text-decoration: none; }
+
+        /* Nav */
+        nav {
+            position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+            padding: 1rem 2rem;
+            background: rgba(10, 15, 26, 0.85);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border);
+            display: flex; justify-content: space-between; align-items: center;
+            transition: all 0.3s;
+        }
+        .logo { font-size: 1.25rem; font-weight: 700; letter-spacing: -0.02em; }
+        .logo span { color: var(--accent); }
+        .nav-links { display: flex; gap: 2rem; align-items: center; }
+        .nav-links a { color: var(--text-muted); font-size: 0.9rem; transition: color 0.2s; }
+        .nav-links a:hover { color: var(--text); }
+        .nav-cta {
+            background: var(--accent); color: white !important; padding: 0.5rem 1.25rem;
+            border-radius: 8px; font-weight: 600; font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+        .nav-cta:hover { background: var(--accent-dark); transform: translateY(-1px); }
+
+        /* Container */
+        .container { max-width: 1200px; margin: 0 auto; padding: 0 1.5rem; }
+
+        /* Hero */
+        .hero {
+            padding: 10rem 0 6rem;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        .hero::before {
+            content: '';
+            position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+            width: 800px; height: 800px;
+            background: radial-gradient(circle, rgba(59, 130, 246, 0.12) 0%, transparent 70%);
+            pointer-events: none;
+        }
+        .hero-badge {
+            display: inline-flex; align-items: center; gap: 0.5rem;
+            background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.2);
+            padding: 0.4rem 1rem; border-radius: 50px;
+            font-size: 0.85rem; color: var(--accent-light); margin-bottom: 1.5rem;
+        }
+        .hero-badge::before { content: ''; width: 6px; height: 6px; background: var(--accent); border-radius: 50%; animation: pulse 2s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+        .hero h1 {
+            font-size: clamp(2.5rem, 6vw, 4.5rem); font-weight: 800;
+            line-height: 1.1; letter-spacing: -0.03em; margin-bottom: 1.5rem;
+            background: linear-gradient(135deg, #fff 0%, #94a3b8 100%);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        .hero p {
+            font-size: 1.25rem; color: var(--text-muted);
+            max-width: 600px; margin: 0 auto 2.5rem;
+        }
+        .hero-cta {
+            display: inline-flex; align-items: center; gap: 0.75rem;
+            background: var(--accent); color: white; padding: 1rem 2.5rem;
+            border-radius: 12px; font-size: 1.1rem; font-weight: 600;
+            transition: all 0.3s; border: none; cursor: pointer;
+            box-shadow: 0 0 40px rgba(59, 130, 246, 0.3);
+        }
+        .hero-cta:hover { background: var(--accent-dark); transform: translateY(-2px); box-shadow: 0 0 60px rgba(59, 130, 246, 0.4); }
+        .hero-cta svg { width: 20px; height: 20px; }
+        .hero-stats {
+            display: flex; justify-content: center; gap: 3rem;
+            margin-top: 4rem; flex-wrap: wrap;
+        }
+        .hero-stat { text-align: center; }
+        .hero-stat .number { font-size: 2rem; font-weight: 800; color: var(--accent-light); }
+        .hero-stat .label { font-size: 0.85rem; color: var(--text-muted); margin-top: 0.25rem; }
+
+        /* Section */
+        section { padding: 5rem 0; }
+        .section-label {
+            text-transform: uppercase; font-size: 0.8rem; font-weight: 600;
+            letter-spacing: 0.1em; color: var(--accent); margin-bottom: 0.75rem;
+        }
+        .section-title {
+            font-size: clamp(2rem, 4vw, 3rem); font-weight: 800;
+            letter-spacing: -0.02em; margin-bottom: 1rem;
+        }
+        .section-subtitle { font-size: 1.1rem; color: var(--text-muted); max-width: 600px; }
+        .section-header { text-align: center; margin-bottom: 4rem; }
+        .section-header .section-subtitle { margin: 0 auto; }
+
+        /* Problem */
+        .problem { background: var(--bg-card); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+        .problem-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem; margin-top: 3rem;
+        }
+        .problem-card {
+            padding: 2rem; border-radius: var(--radius);
+            background: var(--bg); border: 1px solid var(--border);
+            transition: all 0.3s;
+        }
+        .problem-card:hover { border-color: rgba(59, 130, 246, 0.3); transform: translateY(-2px); }
+        .problem-icon {
+            width: 48px; height: 48px; border-radius: 10px;
+            background: rgba(239, 68, 68, 0.1); display: flex; align-items: center; justify-content: center;
+            margin-bottom: 1rem; font-size: 1.5rem;
+        }
+        .problem-card h3 { font-size: 1.1rem; font-weight: 700; margin-bottom: 0.5rem; }
+        .problem-card p { font-size: 0.95rem; color: var(--text-muted); }
+
+        /* Services */
+        .services-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 1.5rem;
+        }
+        .service-card {
+            padding: 2rem; border-radius: var(--radius);
+            background: var(--bg-card); border: 1px solid var(--border);
+            transition: all 0.3s; position: relative; overflow: hidden;
+        }
+        .service-card::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0;
+            height: 3px; background: var(--accent); transform: scaleX(0);
+            transition: transform 0.3s; transform-origin: left;
+        }
+        .service-card:hover::before { transform: scaleX(1); }
+        .service-card:hover { border-color: rgba(59, 130, 246, 0.3); }
+        .service-icon {
+            width: 48px; height: 48px; border-radius: 10px;
+            background: rgba(59, 130, 246, 0.1); display: flex; align-items: center; justify-content: center;
+            margin-bottom: 1rem; font-size: 1.5rem;
+        }
+        .service-card h3 { font-size: 1.15rem; font-weight: 700; margin-bottom: 0.5rem; }
+        .service-card p { font-size: 0.9rem; color: var(--text-muted); }
+
+        /* Testimonials */
+        .testimonials { background: var(--bg-card); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+        .testimonial-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 1.5rem;
+        }
+        .testimonial-card {
+            padding: 2rem; border-radius: var(--radius);
+            background: var(--bg); border: 1px solid var(--border);
+        }
+        .stars { color: #FBBF24; font-size: 1.1rem; margin-bottom: 1rem; letter-spacing: 2px; }
+        .testimonial-card blockquote { font-size: 1rem; line-height: 1.7; margin-bottom: 1.5rem; font-style: italic; color: var(--text-muted); }
+        .testimonial-author { display: flex; align-items: center; gap: 0.75rem; }
+        .testimonial-avatar {
+            width: 40px; height: 40px; border-radius: 50%;
+            background: var(--accent); display: flex; align-items: center; justify-content: center;
+            font-weight: 700; font-size: 0.85rem;
+        }
+        .testimonial-name { font-weight: 600; font-size: 0.9rem; }
+        .testimonial-role { font-size: 0.8rem; color: var(--text-muted); }
+
+        /* Pricing */
+        .pricing-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+        }
+        .price-card {
+            padding: 2.5rem; border-radius: var(--radius);
+            background: var(--bg-card); border: 1px solid var(--border);
+            transition: all 0.3s; text-align: center;
+        }
+        .price-card.featured {
+            border-color: var(--accent);
+            background: linear-gradient(180deg, rgba(59, 130, 246, 0.08), var(--bg-card));
+            position: relative;
+        }
+        .price-card.featured::before {
+            content: 'Most Popular'; position: absolute; top: -12px; left: 50%; transform: translateX(-50%);
+            background: var(--accent); color: white; padding: 0.25rem 1rem;
+            border-radius: 50px; font-size: 0.75rem; font-weight: 600;
+        }
+        .price-card:hover { transform: translateY(-4px); }
+        .price-label { font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; }
+        .price-amount { font-size: 3rem; font-weight: 800; margin-bottom: 0.25rem; }
+        .price-amount span { font-size: 1rem; color: var(--text-muted); font-weight: 400; }
+        .price-desc { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 2rem; }
+        .price-features { list-style: none; text-align: left; margin-bottom: 2rem; }
+        .price-features li {
+            padding: 0.5rem 0; font-size: 0.9rem; color: var(--text-muted);
+            display: flex; align-items: center; gap: 0.75rem;
+        }
+        .price-features li::before { content: '\2713'; color: var(--accent); font-weight: 700; }
+        .price-btn {
+            display: block; width: 100%; padding: 0.85rem;
+            border-radius: 10px; font-size: 1rem; font-weight: 600;
+            border: 2px solid var(--border); background: transparent; color: var(--text);
+            cursor: pointer; transition: all 0.2s;
+        }
+        .price-btn:hover { border-color: var(--accent); background: rgba(59, 130, 246, 0.05); }
+        .price-card.featured .price-btn {
+            background: var(--accent); border-color: var(--accent); color: white;
+        }
+        .price-card.featured .price-btn:hover { background: var(--accent-dark); }
+
+        /* Service Area */
+        .area-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem; margin-top: 2rem;
+        }
+        .area-tag {
+            padding: 1rem 1.5rem; border-radius: var(--radius);
+            background: var(--bg-card); border: 1px solid var(--border);
+            text-align: center; font-weight: 600; transition: all 0.2s;
+        }
+        .area-tag:hover { border-color: var(--accent); }
+        .area-tag .area-time { font-size: 0.8rem; color: var(--text-muted); font-weight: 400; margin-top: 0.25rem; }
+
+        /* CTA */
+        .cta-section {
+            padding: 6rem 0; text-align: center;
+            background: linear-gradient(180deg, var(--bg), var(--bg-card));
+        }
+        .cta-box {
+            max-width: 700px; margin: 0 auto; padding: 4rem;
+            border-radius: 20px; background: var(--bg-card);
+            border: 1px solid var(--border); position: relative; overflow: hidden;
+        }
+        .cta-box::before {
+            content: ''; position: absolute; top: -50%; left: -50%;
+            width: 200%; height: 200%;
+            background: radial-gradient(circle at center, rgba(59, 130, 246, 0.08) 0%, transparent 50%);
+        }
+        .cta-box h2 { font-size: 2.25rem; font-weight: 800; margin-bottom: 1rem; position: relative; }
+        .cta-box p { color: var(--text-muted); margin-bottom: 2rem; font-size: 1.1rem; position: relative; }
+        .cta-btn {
+            display: inline-flex; align-items: center; gap: 0.75rem;
+            background: var(--accent); color: white; padding: 1rem 2.5rem;
+            border-radius: 12px; font-size: 1.1rem; font-weight: 600;
+            border: none; cursor: pointer; transition: all 0.3s; position: relative;
+            box-shadow: 0 0 40px rgba(59, 130, 246, 0.3);
+        }
+        .cta-btn:hover { background: var(--accent-dark); transform: translateY(-2px); }
+        .cta-note { font-size: 0.85rem; color: var(--text-muted); margin-top: 1rem; position: relative; }
+
+        /* Footer */
+        footer {
+            padding: 3rem 0; text-align: center;
+            border-top: 1px solid var(--border); color: var(--text-muted); font-size: 0.85rem;
+        }
+        footer a { color: var(--accent-light); }
+        footer a:hover { text-decoration: underline; }
+        .footer-brand { font-weight: 600; color: var(--text); margin-bottom: 0.5rem; }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            nav { padding: 0.75rem 1rem; }
+            .nav-links { display: none; }
+            .hero { padding: 7rem 0 4rem; }
+            .hero-stats { gap: 1.5rem; }
+            .hero-stat .number { font-size: 1.5rem; }
+            section { padding: 3.5rem 0; }
+            .cta-box { padding: 2.5rem 1.5rem; }
+            .pricing-grid { grid-template-columns: 1fr; max-width: 400px; margin: 0 auto; }
+        }
+
+        /* Animations */
+        .fade-in { opacity: 0; transform: translateY(20px); transition: all 0.6s ease-out; }
+        .fade-in.visible { opacity: 1; transform: translateY(0); }
+    </style>
+</head>
+<body>
+    <nav>
+        <div class="logo">Canberra <span>Mobile Mechanic</span></div>
+        <div class="nav-links">
+            <a href="#services">Services</a>
+            <a href="#pricing">Pricing</a>
+            <a href="#reviews">Reviews</a>
+            <a href="#areas">Service Areas</a>
+            <a href="#book" class="nav-cta">Book Now</a>
+        </div>
+    </nav>
+
+    <section class="hero">
+        <div class="container">
+            <div class="hero-badge">Available today in Canberra</div>
+            <h1>Your Mechanic<br>Comes to You</h1>
+            <p>Professional auto repair and servicing at your home or office. No tow trucks, no waiting rooms, no wasted weekends. We bring the workshop to your driveway.</p>
+            <a href="#book" class="hero-cta">
+                Book Your Mobile Service
+                <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z"/></svg>
+            </a>
+            <div class="hero-stats">
+                <div class="hero-stat">
+                    <div class="number">500+</div>
+                    <div class="label">Vehicles Serviced</div>
+                </div>
+                <div class="hero-stat">
+                    <div class="number">4.9</div>
+                    <div class="label">Google Rating</div>
+                </div>
+                <div class="hero-stat">
+                    <div class="number">Same-Day</div>
+                    <div class="label">Service Available</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="problem" id="problem">
+        <div class="container">
+            <div class="section-header">
+                <div class="section-label">The Problem</div>
+                <h2 class="section-title">Your Car Needs Service.<br>Your Time Doesn't.</h2>
+                <p class="section-subtitle">Traditional workshops steal your entire day. You deserve better.</p>
+            </div>
+            <div class="problem-grid fade-in">
+                <div class="problem-card">
+                    <div class="problem-icon">&#9201;</div>
+                    <h3>Hours Wasted Waiting</h3>
+                    <p>Drop off at 8am, collect at 5pm. That's an entire day lost to a 45-minute oil change.</p>
+                </div>
+                <div class="problem-card">
+                    <div class="problem-icon">&#128176;</div>
+                    <h3>Overcharged at Workshops</h3>
+                    <p>Workshop overheads mean you pay for their rent, their waiting room coffee, and their reception staff.</p>
+                </div>
+                <div class="problem-card">
+                    <div class="problem-icon">&#128663;</div>
+                    <h3>Towing Hassles</h3>
+                    <p>Car won't start? Now you need a tow on top of the repair. Double the cost, double the stress.</p>
+                </div>
+                <div class="problem-card">
+                    <div class="problem-icon">&#128556;</div>
+                    <h3>No Transparency</h3>
+                    <p>"We found a few extra things" is workshop code for an inflated bill. You deserve upfront pricing.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="services">
+        <div class="container">
+            <div class="section-header">
+                <div class="section-label">What We Do</div>
+                <h2 class="section-title">Full-Service Auto Repair,<br>Wherever You Are</h2>
+                <p class="section-subtitle">From routine maintenance to complex diagnostics, we handle it all on-site with professional tools and certified parts.</p>
+            </div>
+            <div class="services-grid fade-in">
+                <div class="service-card">
+                    <div class="service-icon">&#128167;</div>
+                    <h3>Oil &amp; Filter Change</h3>
+                    <p>Premium synthetic oil, quality filters. Done in your driveway in under 30 minutes. All waste disposed responsibly.</p>
+                </div>
+                <div class="service-card">
+                    <div class="service-icon">&#9899;</div>
+                    <h3>Brake Repair</h3>
+                    <p>Pads, rotors, fluid flush. We carry parts for most makes and models. No markup on OEM components.</p>
+                </div>
+                <div class="service-card">
+                    <div class="service-icon">&#128268;</div>
+                    <h3>Full Diagnostics</h3>
+                    <p>Engine light on? We bring professional OBD-II scanners and oscilloscopes to find the real issue fast.</p>
+                </div>
+                <div class="service-card">
+                    <div class="service-icon">&#128666;</div>
+                    <h3>Fleet Maintenance</h3>
+                    <p>Keep your business vehicles running. Scheduled servicing at your depot. Volume discounts available.</p>
+                </div>
+                <div class="service-card">
+                    <div class="service-icon">&#9889;</div>
+                    <h3>Battery Replacement</h3>
+                    <p>Dead battery? We'll test, replace, and dispose of the old one. Most vehicles done in 20 minutes.</p>
+                </div>
+                <div class="service-card">
+                    <div class="service-icon">&#10052;</div>
+                    <h3>A/C Regas &amp; Service</h3>
+                    <p>Stay cool in Canberra summers. Full air conditioning regas and leak testing at your location.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="testimonials" id="reviews">
+        <div class="container">
+            <div class="section-header">
+                <div class="section-label">What Our Customers Say</div>
+                <h2 class="section-title">4.9 Stars From 200+ Reviews</h2>
+            </div>
+            <div class="testimonial-grid fade-in">
+                <div class="testimonial-card">
+                    <div class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+                    <blockquote>"Called at 9am, they were at my house by 11. Oil change done while I worked from home. Honestly can't believe I used to waste Saturdays at Kmart Auto. Never going back."</blockquote>
+                    <div class="testimonial-author">
+                        <div class="testimonial-avatar">MK</div>
+                        <div>
+                            <div class="testimonial-name">Michael K.</div>
+                            <div class="testimonial-role">Belconnen, ACT</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="testimonial-card">
+                    <div class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+                    <blockquote>"My brakes were grinding and I couldn't get to a workshop. These guys came to my office car park, replaced pads and rotors, and I drove home safely. Fair price, great communication."</blockquote>
+                    <div class="testimonial-author">
+                        <div class="testimonial-avatar">SR</div>
+                        <div>
+                            <div class="testimonial-name">Sarah R.</div>
+                            <div class="testimonial-role">Woden, ACT</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="testimonial-card">
+                    <div class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+                    <blockquote>"We use them for our fleet of 12 delivery vans. They come to our depot on Saturdays and knock them all out. Saved us thousands in workshop fees and downtime."</blockquote>
+                    <div class="testimonial-author">
+                        <div class="testimonial-avatar">DJ</div>
+                        <div>
+                            <div class="testimonial-name">David J.</div>
+                            <div class="testimonial-role">Fyshwick, ACT &mdash; Fleet Manager</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="pricing">
+        <div class="container">
+            <div class="section-header">
+                <div class="section-label">Transparent Pricing</div>
+                <h2 class="section-title">No Surprises. No Hidden Fees.</h2>
+                <p class="section-subtitle">What we quote is what you pay. Every service includes parts, labour, and on-site convenience.</p>
+            </div>
+            <div class="pricing-grid fade-in">
+                <div class="price-card">
+                    <div class="price-label">Service Call</div>
+                    <div class="price-amount">$89 <span>AUD</span></div>
+                    <div class="price-desc">Diagnosis &amp; inspection at your location</div>
+                    <ul class="price-features">
+                        <li>On-site vehicle inspection</li>
+                        <li>OBD-II diagnostic scan</li>
+                        <li>Written report &amp; quote</li>
+                        <li>Waived if you book a repair</li>
+                    </ul>
+                    <a href="#book"><button class="price-btn">Book Inspection</button></a>
+                </div>
+                <div class="price-card featured">
+                    <div class="price-label">Oil Change</div>
+                    <div class="price-amount">$149 <span>AUD</span></div>
+                    <div class="price-desc">Full synthetic oil &amp; filter service</div>
+                    <ul class="price-features">
+                        <li>Premium synthetic oil</li>
+                        <li>Quality oil filter replacement</li>
+                        <li>20-point safety check</li>
+                        <li>Waste oil disposal included</li>
+                    </ul>
+                    <a href="#book"><button class="price-btn">Book Oil Change</button></a>
+                </div>
+                <div class="price-card">
+                    <div class="price-label">Full Diagnostic</div>
+                    <div class="price-amount">$199 <span>AUD</span></div>
+                    <div class="price-desc">Complete vehicle health assessment</div>
+                    <ul class="price-features">
+                        <li>Full computer diagnostic</li>
+                        <li>Electrical system test</li>
+                        <li>Brake &amp; suspension check</li>
+                        <li>Detailed written report</li>
+                    </ul>
+                    <a href="#book"><button class="price-btn">Book Diagnostic</button></a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="problem" id="areas">
+        <div class="container">
+            <div class="section-header">
+                <div class="section-label">Coverage</div>
+                <h2 class="section-title">Serving All of Canberra &amp; Surrounds</h2>
+                <p class="section-subtitle">From Gungahlin to Tuggeranong, we'll come to you. All areas within 30km of Canberra CBD covered.</p>
+            </div>
+            <div class="area-grid fade-in">
+                <div class="area-tag">Belconnen<div class="area-time">15 min response</div></div>
+                <div class="area-tag">Woden Valley<div class="area-time">15 min response</div></div>
+                <div class="area-tag">Tuggeranong<div class="area-time">20 min response</div></div>
+                <div class="area-tag">Gungahlin<div class="area-time">20 min response</div></div>
+                <div class="area-tag">Inner North<div class="area-time">10 min response</div></div>
+                <div class="area-tag">Inner South<div class="area-time">10 min response</div></div>
+                <div class="area-tag">Weston Creek<div class="area-time">15 min response</div></div>
+                <div class="area-tag">Queanbeyan<div class="area-time">25 min response</div></div>
+            </div>
+        </div>
+    </section>
+
+    <section class="cta-section" id="book">
+        <div class="container">
+            <div class="cta-box fade-in">
+                <h2>Book Your Mobile Service Today</h2>
+                <p>Same-day availability for most services. We come to your home, your office, or anywhere your car is parked.</p>
+                <a href="https://forgevoicestudio.com"><button class="cta-btn">
+                    Book Now &mdash; We Come to You
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z"/></svg>
+                </button></a>
+                <p class="cta-note">Free call-out fee when you book a service. Same-day appointments available.</p>
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        <div class="container">
+            <div class="footer-brand">Canberra Mobile Mechanic</div>
+            <p style="margin-bottom: 1rem;">Professional mobile auto repair &mdash; Canberra, ACT</p>
+            <p>Built by <a href="https://forgevoicestudio.com" target="_blank">ForgeVoice Studio</a> &nbsp;|&nbsp; <a href="https://forgevoicestudio.com">forgevoicestudio.com</a></p>
+        </div>
+    </footer>
+
+    <script>
+        // Intersection Observer for fade-in animations
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                }
+            });
+        }, { threshold: 0.1 });
+        document.querySelectorAll('.fade-in').forEach(el => observer.observe(el));
+
+        // Smooth scroll for anchor links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function(e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            });
+        });
+
+        // Nav background on scroll
+        window.addEventListener('scroll', () => {
+            const nav = document.querySelector('nav');
+            if (window.scrollY > 50) {
+                nav.style.background = 'rgba(10, 15, 26, 0.95)';
+            } else {
+                nav.style.background = 'rgba(10, 15, 26, 0.85)';
+            }
+        });
+    </script>
+</body>
+</html>

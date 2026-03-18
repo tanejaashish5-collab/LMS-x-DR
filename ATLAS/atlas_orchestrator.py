@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 ATLAS Main Orchestrator
-Coordinates all agents: SCOUT, VAULT, FORGE, MERCURY, CLOSER
+Coordinates all agents: SCOUT, VAULT, FORGE, MERCURY, CLOSER, CONTENT_CREATOR
 Pure Python - No n8n, No workflows, Just intelligent agents
 """
 
@@ -9,7 +9,7 @@ import os
 import sys
 import json
 import asyncio
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from typing import Dict, Any, List, Optional
 import logging
 import uuid
@@ -25,6 +25,7 @@ from agents.scout import SCOUTAgent
 from agents.forge import FORGEAgent, LandingPageRequest
 from agents.mercury import MERCURYAgent, DistributionRequest
 from agents.closer import CLOSERAgent
+from agents.content_creator import ContentCreatorAgent
 
 # Third-party imports
 from supabase import create_client, Client
@@ -86,8 +87,9 @@ class ATLASOrchestrator:
         self.forge = FORGEAgent(vault_agent=self.vault)
         self.mercury = MERCURYAgent(vault_agent=self.vault)
         self.closer = CLOSERAgent(vault_agent=self.vault)
+        self.content_creator = ContentCreatorAgent(vault_agent=self.vault)
 
-        logger.info("ATLAS Orchestrator initialized with all agents (including CLOSER)")
+        logger.info("ATLAS Orchestrator initialized with all agents (including CLOSER, CONTENT_CREATOR)")
 
     async def run_discovery_pipeline(self) -> Dict[str, Any]:
         """
@@ -262,8 +264,11 @@ class ATLASOrchestrator:
             # Get pipeline summary for briefing
             pipeline_summary = self.closer.get_pipeline_summary()
 
+            # Get content stats for briefing
+            content_stats = await self.content_creator.get_content_stats()
+
             # Create daily briefing
-            briefing = self._create_briefing(experiments, opportunities, budget_status, decisions, results, pipeline_summary)
+            briefing = self._create_briefing(experiments, opportunities, budget_status, decisions, results, pipeline_summary, content_stats)
 
             logger.info("Daily orchestration complete")
             return {
@@ -361,8 +366,8 @@ class ATLASOrchestrator:
 
         logger.info(f"Killed experiment {experiment_id}: {reason}")
 
-    def _create_briefing(self, experiments, opportunities, budget_status, decisions, results, pipeline_summary=None) -> str:
-        """Create daily briefing including sales pipeline status"""
+    def _create_briefing(self, experiments, opportunities, budget_status, decisions, results, pipeline_summary=None, content_stats=None) -> str:
+        """Create daily briefing including sales pipeline and content status"""
         # Build pipeline section
         pipeline_section = ""
         if pipeline_summary and 'error' not in pipeline_summary:
@@ -375,6 +380,23 @@ class ATLASOrchestrator:
 - Proposals Pending: {pipeline_summary.get('proposals_pending', 0)}
 - Follow-ups Due: {pipeline_summary.get('followups_due', 0)}
 - Stages: {', '.join(f'{k}: {v}' for k, v in by_stage.items())}
+"""
+
+        # Build content section
+        content_section = ""
+        if content_stats and 'error' not in content_stats:
+            upcoming = content_stats.get('upcoming_week', [])
+            upcoming_lines = [
+                f"  - {c.get('scheduled_for', '?')}: [{c.get('pillar', '?')}] {c.get('topic', '?')[:50]}"
+                for c in upcoming[:5]
+            ]
+            content_section = f"""
+## Content Calendar (CONTENT_CREATOR)
+- Total Content: {content_stats.get('total_content', 0)}
+- Drafts Pending Review: {content_stats.get('drafts', 0)}
+- Posted: {content_stats.get('posted', 0)}
+- Upcoming This Week:
+{chr(10).join(upcoming_lines) if upcoming_lines else '  - No content scheduled'}
 """
 
         briefing = f"""
@@ -391,7 +413,7 @@ Date: {datetime.now().strftime('%Y-%m-%d %H:%M')}
 
 ## Top Opportunities: {len(opportunities)}
 {chr(10).join([f"- {o['title']} (Score: {o.get('sonnet_score', 'N/A')})" for o in opportunities[:3]])}
-{pipeline_section}
+{pipeline_section}{content_section}
 ## Decisions Made: {len(decisions)}
 {chr(10).join([f"- {d['action']}: {d.get('reason', 'Strategic')}" for d in decisions])}
 
@@ -426,7 +448,7 @@ async def root():
         "system": "ATLAS Autonomous Business System",
         "version": "2.0",
         "status": "operational",
-        "agents": ["SCOUT", "VAULT", "FORGE", "MERCURY", "CLOSER"],
+        "agents": ["SCOUT", "VAULT", "FORGE", "MERCURY", "CLOSER", "CONTENT_CREATOR"],
         "message": "No n8n. No workflows. Just intelligent agents."
     }
 
@@ -446,7 +468,8 @@ async def get_status():
             "vault": "ready",
             "forge": "ready",
             "mercury": "ready",
-            "closer": "ready"
+            "closer": "ready",
+            "content_creator": "ready"
         },
         "timestamp": datetime.now().isoformat()
     }
@@ -591,6 +614,55 @@ async def budget_check(request: Dict[str, Any]):
     return result
 
 # ===========================================
+# Content Creator Endpoints
+# ===========================================
+
+@app.get("/api/content")
+async def list_content():
+    """List all pending (draft) content"""
+    orchestrator = ATLASOrchestrator()
+    content = await orchestrator.content_creator.get_pending_content()
+    return {"content": content, "count": len(content)}
+
+
+@app.get("/api/content/stats")
+async def content_stats():
+    """Get content generation statistics"""
+    orchestrator = ATLASOrchestrator()
+    return await orchestrator.content_creator.get_content_stats()
+
+
+class ContentGenerateRequest(BaseModel):
+    start_date: Optional[str] = None
+    days: int = 7
+
+
+@app.post("/api/content/generate")
+async def trigger_content_generation(
+    request: ContentGenerateRequest,
+    background_tasks: BackgroundTasks,
+):
+    """Trigger batch content generation"""
+    orchestrator = ATLASOrchestrator()
+
+    if request.start_date:
+        start = date.fromisoformat(request.start_date)
+    else:
+        start = date.today() + timedelta(days=1)
+
+    background_tasks.add_task(
+        orchestrator.content_creator.generate_batch,
+        start,
+        request.days,
+    )
+    return {
+        "status": "content generation started",
+        "start_date": start.isoformat(),
+        "days": request.days,
+    }
+
+
+# ===========================================
 # Scheduler
 # ===========================================
 
@@ -624,6 +696,15 @@ def run_scheduler():
         lambda: orchestrator.closer._process_followups()
     )
 
+    # Content generation: Daily at 8 PM AEST (generate next day's content)
+    schedule.every().day.at("20:00").do(
+        lambda: asyncio.run(
+            orchestrator.content_creator.generate_daily_content(
+                date.today() + timedelta(days=1)
+            )
+        )
+    )
+
     while True:
         schedule.run_pending()
         time.sleep(60)
@@ -641,21 +722,25 @@ if __name__ == "__main__":
     print("=" * 60)
     print()
     print(" Agents:")
-    print("   * SCOUT   - Opportunity discovery")
-    print("   * VAULT   - Budget management ($250/mo)")
-    print("   * FORGE   - Landing page builder")
-    print("   * MERCURY - Multi-channel distribution")
-    print("   * CLOSER  - Sales pipeline manager")
+    print("   * SCOUT           - Opportunity discovery")
+    print("   * VAULT           - Budget management ($250/mo)")
+    print("   * FORGE           - Landing page builder")
+    print("   * MERCURY         - Multi-channel distribution")
+    print("   * CLOSER          - Sales pipeline manager")
+    print("   * CONTENT_CREATOR - Social media content generation")
     print()
     print(" Endpoints:")
-    print("   * http://localhost:8000/             - System info")
-    print("   * http://localhost:8000/api/status   - Current status")
-    print("   * http://localhost:8000/api/discover - Run discovery")
-    print("   * http://localhost:8000/api/pipeline - Pipeline list")
-    print("   * http://localhost:8000/api/proposals - Proposals list")
-    print("   * http://localhost:8000/api/outreach - Outreach list")
-    print("   * http://localhost:8000/api/closer/run - Trigger CLOSER")
-    print("   * http://localhost:8000/api/closer/summary - Pipeline summary")
+    print("   * http://localhost:8000/                    - System info")
+    print("   * http://localhost:8000/api/status          - Current status")
+    print("   * http://localhost:8000/api/discover        - Run discovery")
+    print("   * http://localhost:8000/api/pipeline        - Pipeline list")
+    print("   * http://localhost:8000/api/proposals       - Proposals list")
+    print("   * http://localhost:8000/api/outreach        - Outreach list")
+    print("   * http://localhost:8000/api/closer/run      - Trigger CLOSER")
+    print("   * http://localhost:8000/api/closer/summary  - Pipeline summary")
+    print("   * http://localhost:8000/api/content         - Pending content")
+    print("   * http://localhost:8000/api/content/stats   - Content stats")
+    print("   * http://localhost:8000/api/content/generate - Generate batch")
     print("   * http://localhost:8000/webhook/budget-check")
     print()
     print(" Schedule:")
@@ -663,6 +748,7 @@ if __name__ == "__main__":
     print("   * Orchestration: Daily at 7:00 AM")
     print("   * CLOSER Pipeline: Daily at 8:00 AM")
     print("   * CLOSER Follow-ups: Daily at 2:00 PM")
+    print("   * Content Generation: Daily at 8:00 PM")
     print("=" * 60)
 
     # Start scheduler in background

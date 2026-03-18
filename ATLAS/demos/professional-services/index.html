@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TaxRight Advisory | Smart Tax Solutions for Growing Businesses</title>
+    <meta name="description" content="Expert tax planning, BAS lodgement, SMSF administration and business structuring. 15+ years experience. $2.3M saved for clients. CPA certified.">
+    <meta property="og:title" content="TaxRight Advisory | Smart Tax Solutions for Growing Businesses">
+    <meta property="og:description" content="Expert tax solutions for businesses and individuals. Free tax health check. CPA certified, 15+ years experience.">
+    <style>
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --accent: #10B981;
+            --accent-light: #34D399;
+            --accent-dark: #059669;
+            --bg: #0B1120;
+            --bg-card: #111827;
+            --bg-elevated: #1F2937;
+            --text: #F9FAFB;
+            --text-muted: #9CA3AF;
+            --border: #1F2937;
+            --radius: 12px;
+        }
+        html { scroll-behavior: smooth; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg); color: var(--text); line-height: 1.6; overflow-x: hidden;
+        }
+        a { color: inherit; text-decoration: none; }
+
+        nav {
+            position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+            padding: 1rem 2rem;
+            background: rgba(11, 17, 32, 0.85); backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border);
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .logo { font-size: 1.25rem; font-weight: 700; letter-spacing: -0.02em; }
+        .logo span { color: var(--accent); }
+        .nav-links { display: flex; gap: 2rem; align-items: center; }
+        .nav-links a { color: var(--text-muted); font-size: 0.9rem; transition: color 0.2s; }
+        .nav-links a:hover { color: var(--text); }
+        .nav-cta {
+            background: var(--accent); color: white !important; padding: 0.5rem 1.25rem;
+            border-radius: 8px; font-weight: 600; font-size: 0.9rem; transition: all 0.2s;
+        }
+        .nav-cta:hover { background: var(--accent-dark); transform: translateY(-1px); }
+
+        .container { max-width: 1200px; margin: 0 auto; padding: 0 1.5rem; }
+
+        /* Hero */
+        .hero {
+            padding: 10rem 0 6rem; text-align: center; position: relative; overflow: hidden;
+        }
+        .hero::before {
+            content: ''; position: absolute; top: -100px; left: 50%; transform: translateX(-50%);
+            width: 900px; height: 900px;
+            background: radial-gradient(circle, rgba(16, 185, 129, 0.1) 0%, transparent 70%);
+            pointer-events: none;
+        }
+        .hero-badge {
+            display: inline-flex; align-items: center; gap: 0.5rem;
+            background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.2);
+            padding: 0.4rem 1rem; border-radius: 50px;
+            font-size: 0.85rem; color: var(--accent-light); margin-bottom: 1.5rem;
+        }
+        .hero-badge::before { content: ''; width: 6px; height: 6px; background: var(--accent); border-radius: 50%; animation: pulse 2s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+        .hero h1 {
+            font-size: clamp(2.5rem, 6vw, 4.5rem); font-weight: 800;
+            line-height: 1.1; letter-spacing: -0.03em; margin-bottom: 1.5rem;
+            background: linear-gradient(135deg, #fff 0%, #94a3b8 100%);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        .hero p { font-size: 1.25rem; color: var(--text-muted); max-width: 620px; margin: 0 auto 2.5rem; }
+        .hero-cta {
+            display: inline-flex; align-items: center; gap: 0.75rem;
+            background: var(--accent); color: white; padding: 1rem 2.5rem;
+            border-radius: 12px; font-size: 1.1rem; font-weight: 600;
+            transition: all 0.3s; border: none; cursor: pointer;
+            box-shadow: 0 0 40px rgba(16, 185, 129, 0.3);
+        }
+        .hero-cta:hover { background: var(--accent-dark); transform: translateY(-2px); box-shadow: 0 0 60px rgba(16, 185, 129, 0.4); }
+        .hero-cta svg { width: 20px; height: 20px; }
+        .trust-row {
+            display: flex; justify-content: center; gap: 3rem; margin-top: 4rem; flex-wrap: wrap;
+        }
+        .trust-item { text-align: center; }
+        .trust-item .number { font-size: 2rem; font-weight: 800; color: var(--accent-light); }
+        .trust-item .label { font-size: 0.85rem; color: var(--text-muted); margin-top: 0.25rem; }
+
+        section { padding: 5rem 0; }
+        .section-label {
+            text-transform: uppercase; font-size: 0.8rem; font-weight: 600;
+            letter-spacing: 0.1em; color: var(--accent); margin-bottom: 0.75rem;
+        }
+        .section-title { font-size: clamp(2rem, 4vw, 3rem); font-weight: 800; letter-spacing: -0.02em; margin-bottom: 1rem; }
+        .section-subtitle { font-size: 1.1rem; color: var(--text-muted); max-width: 600px; }
+        .section-header { text-align: center; margin-bottom: 4rem; }
+        .section-header .section-subtitle { margin: 0 auto; }
+
+        /* Pain */
+        .pain { background: var(--bg-card); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+        .pain-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1.5rem;
+        }
+        .pain-card {
+            padding: 2rem; border-radius: var(--radius); background: var(--bg);
+            border: 1px solid var(--border); transition: all 0.3s;
+        }
+        .pain-card:hover { border-color: rgba(16, 185, 129, 0.3); transform: translateY(-2px); }
+        .pain-icon {
+            width: 48px; height: 48px; border-radius: 10px;
+            background: rgba(239, 68, 68, 0.1); display: flex; align-items: center; justify-content: center;
+            margin-bottom: 1rem; font-size: 1.5rem;
+        }
+        .pain-card h3 { font-size: 1.1rem; font-weight: 700; margin-bottom: 0.5rem; }
+        .pain-card p { font-size: 0.9rem; color: var(--text-muted); }
+
+        /* Services */
+        .services-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1.5rem;
+        }
+        .service-card {
+            padding: 2rem; border-radius: var(--radius);
+            background: var(--bg-card); border: 1px solid var(--border);
+            transition: all 0.3s; position: relative; overflow: hidden;
+        }
+        .service-card::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+            background: var(--accent); transform: scaleX(0); transition: transform 0.3s; transform-origin: left;
+        }
+        .service-card:hover::before { transform: scaleX(1); }
+        .service-card:hover { border-color: rgba(16, 185, 129, 0.3); }
+        .service-icon {
+            width: 48px; height: 48px; border-radius: 10px;
+            background: rgba(16, 185, 129, 0.1); display: flex; align-items: center; justify-content: center;
+            margin-bottom: 1rem; font-size: 1.5rem;
+        }
+        .service-card h3 { font-size: 1.15rem; font-weight: 700; margin-bottom: 0.5rem; }
+        .service-card p { font-size: 0.9rem; color: var(--text-muted); }
+
+        /* Team */
+        .team { background: var(--bg-card); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+        .team-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem; }
+        .team-card {
+            padding: 2.5rem; border-radius: var(--radius); background: var(--bg);
+            border: 1px solid var(--border); text-align: center;
+        }
+        .team-avatar {
+            width: 80px; height: 80px; border-radius: 50%; margin: 0 auto 1.5rem;
+            background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.75rem; font-weight: 700; color: white;
+        }
+        .team-card h3 { font-size: 1.2rem; font-weight: 700; margin-bottom: 0.25rem; }
+        .team-role { color: var(--accent); font-size: 0.9rem; margin-bottom: 1rem; }
+        .team-card p { font-size: 0.9rem; color: var(--text-muted); }
+
+        /* Testimonials */
+        .testimonials-section { }
+        .testimonial-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.5rem;
+        }
+        .testimonial-card {
+            padding: 2rem; border-radius: var(--radius);
+            background: var(--bg-card); border: 1px solid var(--border);
+        }
+        .stars { color: #FBBF24; font-size: 1.1rem; margin-bottom: 1rem; letter-spacing: 2px; }
+        .testimonial-card blockquote { font-size: 1rem; line-height: 1.7; margin-bottom: 1.5rem; font-style: italic; color: var(--text-muted); }
+        .testimonial-author { display: flex; align-items: center; gap: 0.75rem; }
+        .testimonial-avatar {
+            width: 40px; height: 40px; border-radius: 50%; background: var(--accent);
+            display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.85rem;
+        }
+        .testimonial-name { font-weight: 600; font-size: 0.9rem; }
+        .testimonial-role { font-size: 0.8rem; color: var(--text-muted); }
+
+        /* FAQ */
+        .faq { background: var(--bg-card); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+        .faq-list { max-width: 720px; margin: 0 auto; }
+        .faq-item {
+            border-bottom: 1px solid var(--border); overflow: hidden;
+        }
+        .faq-q {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 1.5rem 0; cursor: pointer; font-weight: 600; font-size: 1.05rem;
+            transition: color 0.2s;
+        }
+        .faq-q:hover { color: var(--accent-light); }
+        .faq-q .arrow { transition: transform 0.3s; font-size: 1.25rem; color: var(--text-muted); }
+        .faq-q.active .arrow { transform: rotate(45deg); color: var(--accent); }
+        .faq-a {
+            max-height: 0; overflow: hidden; transition: max-height 0.3s ease-out;
+            color: var(--text-muted); font-size: 0.95rem; line-height: 1.7;
+        }
+        .faq-a.open { max-height: 200px; padding-bottom: 1.5rem; }
+
+        /* CTA */
+        .cta-section { padding: 6rem 0; text-align: center; }
+        .cta-box {
+            max-width: 700px; margin: 0 auto; padding: 4rem;
+            border-radius: 20px; background: var(--bg-card);
+            border: 1px solid var(--border); position: relative; overflow: hidden;
+        }
+        .cta-box::before {
+            content: ''; position: absolute; top: -50%; left: -50%;
+            width: 200%; height: 200%;
+            background: radial-gradient(circle, rgba(16, 185, 129, 0.08) 0%, transparent 50%);
+        }
+        .cta-box h2 { font-size: 2.25rem; font-weight: 800; margin-bottom: 1rem; position: relative; }
+        .cta-box p { color: var(--text-muted); margin-bottom: 2rem; font-size: 1.1rem; position: relative; }
+        .cta-btn {
+            display: inline-flex; align-items: center; gap: 0.75rem;
+            background: var(--accent); color: white; padding: 1rem 2.5rem;
+            border-radius: 12px; font-size: 1.1rem; font-weight: 600;
+            border: none; cursor: pointer; transition: all 0.3s; position: relative;
+            box-shadow: 0 0 40px rgba(16, 185, 129, 0.3);
+        }
+        .cta-btn:hover { background: var(--accent-dark); transform: translateY(-2px); }
+        .cta-note { font-size: 0.85rem; color: var(--text-muted); margin-top: 1rem; position: relative; }
+
+        footer {
+            padding: 3rem 0; text-align: center; border-top: 1px solid var(--border);
+            color: var(--text-muted); font-size: 0.85rem;
+        }
+        footer a { color: var(--accent-light); }
+        footer a:hover { text-decoration: underline; }
+        .footer-brand { font-weight: 600; color: var(--text); margin-bottom: 0.5rem; }
+
+        @media (max-width: 768px) {
+            nav { padding: 0.75rem 1rem; }
+            .nav-links { display: none; }
+            .hero { padding: 7rem 0 4rem; }
+            .trust-row { gap: 1.5rem; }
+            .trust-item .number { font-size: 1.5rem; }
+            section { padding: 3.5rem 0; }
+            .cta-box { padding: 2.5rem 1.5rem; }
+            .team-grid { grid-template-columns: 1fr; max-width: 400px; margin: 0 auto; }
+        }
+
+        .fade-in { opacity: 0; transform: translateY(20px); transition: all 0.6s ease-out; }
+        .fade-in.visible { opacity: 1; transform: translateY(0); }
+    </style>
+</head>
+<body>
+    <nav>
+        <div class="logo">Tax<span>Right</span> Advisory</div>
+        <div class="nav-links">
+            <a href="#services">Services</a>
+            <a href="#team">Team</a>
+            <a href="#reviews">Clients</a>
+            <a href="#faq-section">FAQ</a>
+            <a href="#contact" class="nav-cta">Free Tax Check</a>
+        </div>
+    </nav>
+
+    <section class="hero">
+        <div class="container">
+            <div class="hero-badge">Accepting new clients for FY25</div>
+            <h1>Smart Tax Solutions<br>for Growing Businesses</h1>
+            <p>Stop overpaying the ATO. We combine strategic tax planning with proactive compliance so you keep more of what you earn. CPA-certified team, 15+ years of results.</p>
+            <a href="#contact" class="hero-cta">
+                Get Your Free Tax Health Check
+                <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z"/></svg>
+            </a>
+            <div class="trust-row">
+                <div class="trust-item">
+                    <div class="number">15+</div>
+                    <div class="label">Years Experience</div>
+                </div>
+                <div class="trust-item">
+                    <div class="number">$2.3M</div>
+                    <div class="label">Saved for Clients</div>
+                </div>
+                <div class="trust-item">
+                    <div class="number">CPA</div>
+                    <div class="label">Certified Advisors</div>
+                </div>
+                <div class="trust-item">
+                    <div class="number">300+</div>
+                    <div class="label">Businesses Served</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="pain" id="problem">
+        <div class="container">
+            <div class="section-header">
+                <div class="section-label">The Problem</div>
+                <h2 class="section-title">Tax Shouldn't Keep You Up at Night</h2>
+                <p class="section-subtitle">Most business owners overpay by thousands because they're reactive instead of strategic.</p>
+            </div>
+            <div class="pain-grid fade-in">
+                <div class="pain-card">
+                    <div class="pain-icon">&#128176;</div>
+                    <h3>Overpaying the ATO</h3>
+                    <p>Without proactive tax planning, you're likely missing legitimate deductions and structuring opportunities worth thousands.</p>
+                </div>
+                <div class="pain-card">
+                    <div class="pain-icon">&#9201;</div>
+                    <h3>BAS Deadline Panic</h3>
+                    <p>Quarterly BAS sneaks up, you scramble to find receipts, and late fees pile up. Sound familiar?</p>
+                </div>
+                <div class="pain-card">
+                    <div class="pain-icon">&#128221;</div>
+                    <h3>Wrong Business Structure</h3>
+                    <p>Operating as a sole trader when a trust or company would save you $15K+ a year in tax? More common than you think.</p>
+                </div>
+                <div class="pain-card">
+                    <div class="pain-icon">&#128556;</div>
+                    <h3>Accountant Never Calls</h3>
+                    <p>Your current accountant only surfaces at EOFY. By then, it's too late to optimise. You need year-round strategy.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="services">
+        <div class="container">
+            <div class="section-header">
+                <div class="section-label">Our Services</div>
+                <h2 class="section-title">Comprehensive Tax &amp; Advisory</h2>
+                <p class="section-subtitle">From compliance to strategy, we handle it all so you can focus on running your business.</p>
+            </div>
+            <div class="services-grid fade-in">
+                <div class="service-card">
+                    <div class="service-icon">&#128200;</div>
+                    <h3>Tax Planning &amp; Strategy</h3>
+                    <p>Proactive, year-round tax planning to minimise your liability. We review your structure, timing, and deductions quarterly.</p>
+                </div>
+                <div class="service-card">
+                    <div class="service-icon">&#128196;</div>
+                    <h3>BAS Lodgement</h3>
+                    <p>On-time, every time. We prepare and lodge your quarterly BAS, handle GST reconciliation, and keep you compliant.</p>
+                </div>
+                <div class="service-card">
+                    <div class="service-icon">&#127974;</div>
+                    <h3>SMSF Administration</h3>
+                    <p>Full self-managed super fund setup, compliance, and annual audits. Grow your retirement on your terms.</p>
+                </div>
+                <div class="service-card">
+                    <div class="service-icon">&#9878;</div>
+                    <h3>Business Structuring</h3>
+                    <p>Sole trader, company, trust, or partnership? We'll model the right structure to protect assets and reduce tax.</p>
+                </div>
+                <div class="service-card">
+                    <div class="service-icon">&#128202;</div>
+                    <h3>Financial Reporting</h3>
+                    <p>Monthly P&amp;L, balance sheets, and cash flow reports so you always know where your business stands.</p>
+                </div>
+                <div class="service-card">
+                    <div class="service-icon">&#128640;</div>
+                    <h3>Startup Advisory</h3>
+                    <p>From ABN registration to R&amp;D tax incentives, we help new businesses start right and grow with confidence.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="team" id="team">
+        <div class="container">
+            <div class="section-header">
+                <div class="section-label">Meet the Team</div>
+                <h2 class="section-title">Experienced. Certified. Approachable.</h2>
+                <p class="section-subtitle">No jargon, no suits, no gatekeeping. Just clear advice from people who know tax inside out.</p>
+            </div>
+            <div class="team-grid fade-in">
+                <div class="team-card">
+                    <div class="team-avatar">RP</div>
+                    <h3>Rachel Park</h3>
+                    <div class="team-role">Principal / CPA</div>
+                    <p>15 years in public practice. Former Big 4 tax specialist. Obsessed with finding every dollar clients are entitled to keep.</p>
+                </div>
+                <div class="team-card">
+                    <div class="team-avatar">JM</div>
+                    <h3>James Mitchell</h3>
+                    <div class="team-role">Senior Tax Advisor</div>
+                    <p>SMSF and business structuring specialist. Helped 50+ businesses restructure for an average $18K annual tax saving.</p>
+                </div>
+                <div class="team-card">
+                    <div class="team-avatar">KL</div>
+                    <h3>Kim Luu</h3>
+                    <div class="team-role">BAS &amp; Compliance Manager</div>
+                    <p>Xero-certified with zero tolerance for missed deadlines. Manages 200+ quarterly BAS lodgements without a single late fee.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="testimonials-section" id="reviews">
+        <div class="container">
+            <div class="section-header">
+                <div class="section-label">Client Results</div>
+                <h2 class="section-title">Trusted by 300+ Australian Businesses</h2>
+            </div>
+            <div class="testimonial-grid fade-in">
+                <div class="testimonial-card">
+                    <div class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+                    <blockquote>"Switched from a big firm and immediately saved $22K in the first year. Rachel found deductions my old accountant never mentioned. Wish I'd moved sooner."</blockquote>
+                    <div class="testimonial-author">
+                        <div class="testimonial-avatar">NW</div>
+                        <div>
+                            <div class="testimonial-name">Nathan W.</div>
+                            <div class="testimonial-role">Director, NW Construction Pty Ltd</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="testimonial-card">
+                    <div class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+                    <blockquote>"They restructured our business from sole trader to a family trust. The tax savings more than covered their fees in the first quarter. Incredible team."</blockquote>
+                    <div class="testimonial-author">
+                        <div class="testimonial-avatar">LP</div>
+                        <div>
+                            <div class="testimonial-name">Lisa P.</div>
+                            <div class="testimonial-role">Owner, Canberra Physio Group</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="testimonial-card">
+                    <div class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+                    <blockquote>"First accountant who actually calls ME before deadlines. BAS is always done on time, reports are crystal clear, and they proactively suggest ways to save. Highly recommend."</blockquote>
+                    <div class="testimonial-author">
+                        <div class="testimonial-avatar">AM</div>
+                        <div>
+                            <div class="testimonial-name">Andrew M.</div>
+                            <div class="testimonial-role">CEO, Meridian Digital</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="faq" id="faq-section">
+        <div class="container">
+            <div class="section-header">
+                <div class="section-label">FAQ</div>
+                <h2 class="section-title">Common Questions</h2>
+            </div>
+            <div class="faq-list fade-in">
+                <div class="faq-item">
+                    <div class="faq-q" onclick="toggleFaq(this)">
+                        How much can I realistically save with tax planning?
+                        <span class="arrow">+</span>
+                    </div>
+                    <div class="faq-a">Most small business clients save between $8,000 and $30,000 per year through proper structuring, timing of deductions, and superannuation strategies. We'll give you a clear estimate in your free tax health check.</div>
+                </div>
+                <div class="faq-item">
+                    <div class="faq-q" onclick="toggleFaq(this)">
+                        Do I need to switch from my current accountant?
+                        <span class="arrow">+</span>
+                    </div>
+                    <div class="faq-a">We make the transition seamless. We handle the transfer of records from your existing accountant and ensure there's no gap in compliance. Most clients are fully onboarded within one week.</div>
+                </div>
+                <div class="faq-item">
+                    <div class="faq-q" onclick="toggleFaq(this)">
+                        What accounting software do you work with?
+                        <span class="arrow">+</span>
+                    </div>
+                    <div class="faq-a">We're certified in Xero, MYOB, and QuickBooks. We can work with whatever you're currently using or help you migrate to the best platform for your business size and needs.</div>
+                </div>
+                <div class="faq-item">
+                    <div class="faq-q" onclick="toggleFaq(this)">
+                        Is the free tax health check actually free?
+                        <span class="arrow">+</span>
+                    </div>
+                    <div class="faq-a">Yes, genuinely free. We'll review your last two tax returns, identify missed deductions, and give you a clear roadmap with no obligation. We believe the value speaks for itself.</div>
+                </div>
+                <div class="faq-item">
+                    <div class="faq-q" onclick="toggleFaq(this)">
+                        Do you handle personal tax returns too?
+                        <span class="arrow">+</span>
+                    </div>
+                    <div class="faq-a">Absolutely. Many of our business clients also have us handle their personal returns, investment property tax, and capital gains. We look at your whole financial picture.</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="cta-section" id="contact">
+        <div class="container">
+            <div class="cta-box fade-in">
+                <h2>Get Your Free Tax Health Check</h2>
+                <p>In 30 minutes, we'll identify missed deductions, structural inefficiencies, and a clear path to paying less tax &mdash; legally.</p>
+                <a href="https://forgevoicestudio.com"><button class="cta-btn">
+                    Book Your Free Review
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z"/></svg>
+                </button></a>
+                <p class="cta-note">No obligation. No sales pressure. Just honest advice.</p>
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        <div class="container">
+            <div class="footer-brand">TaxRight Advisory</div>
+            <p style="margin-bottom: 1rem;">CPA-certified tax planning &amp; compliance &mdash; Canberra, ACT</p>
+            <p>Built by <a href="https://forgevoicestudio.com" target="_blank">ForgeVoice Studio</a> &nbsp;|&nbsp; <a href="https://forgevoicestudio.com">forgevoicestudio.com</a></p>
+        </div>
+    </footer>
+
+    <script>
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => { if (entry.isIntersecting) entry.target.classList.add('visible'); });
+        }, { threshold: 0.1 });
+        document.querySelectorAll('.fade-in').forEach(el => observer.observe(el));
+
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function(e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            });
+        });
+
+        function toggleFaq(el) {
+            const answer = el.nextElementSibling;
+            const isOpen = answer.classList.contains('open');
+            document.querySelectorAll('.faq-a').forEach(a => a.classList.remove('open'));
+            document.querySelectorAll('.faq-q').forEach(q => q.classList.remove('active'));
+            if (!isOpen) {
+                answer.classList.add('open');
+                el.classList.add('active');
+            }
+        }
+
+        window.addEventListener('scroll', () => {
+            const nav = document.querySelector('nav');
+            nav.style.background = window.scrollY > 50 ? 'rgba(11, 17, 32, 0.95)' : 'rgba(11, 17, 32, 0.85)';
+        });
+    </script>
+</body>
+</html>
