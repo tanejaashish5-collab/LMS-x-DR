@@ -301,7 +301,7 @@ Respond in this exact JSON format:
 }}"""
 
             message = self.client.messages.create(
-                model="claude-3-haiku-20240307",
+                model="claude-haiku-4-5-20251001",
                 max_tokens=500,
                 messages=[{"role": "user", "content": prompt}]
             )
@@ -311,7 +311,7 @@ Respond in this exact JSON format:
             # Log API call
             self._log_api_call(
                 action='qualify_opportunity',
-                model='claude-3-haiku-20240307',
+                model='claude-haiku-4-5-20251001',
                 input_tokens=message.usage.input_tokens,
                 output_tokens=message.usage.output_tokens,
                 status='success'
@@ -543,7 +543,7 @@ Generate a proposal in this exact JSON format:
 Make it specific to their situation. No generic filler. Sound human, not AI."""
 
             message = self.client.messages.create(
-                model="claude-3-5-sonnet-20240620",
+                model="claude-sonnet-4-6",
                 max_tokens=2000,
                 messages=[{"role": "user", "content": prompt}]
             )
@@ -559,7 +559,7 @@ Make it specific to their situation. No generic filler. Sound human, not AI."""
             # Log API call
             self._log_api_call(
                 action='generate_proposal',
-                model='claude-3-5-sonnet-20240620',
+                model='claude-sonnet-4-6',
                 input_tokens=message.usage.input_tokens,
                 output_tokens=message.usage.output_tokens,
                 status='success',
@@ -869,14 +869,14 @@ Requirements:
 Return JSON: {{"subject": "...", "body": "..."}}"""
 
             message = self.client.messages.create(
-                model="claude-3-haiku-20240307",
+                model="claude-haiku-4-5-20251001",
                 max_tokens=400,
                 messages=[{"role": "user", "content": prompt}]
             )
 
             self._log_api_call(
                 action=f'generate_{followup_type}',
-                model='claude-3-haiku-20240307',
+                model='claude-haiku-4-5-20251001',
                 input_tokens=message.usage.input_tokens,
                 output_tokens=message.usage.output_tokens,
                 status='success',

@@ -304,7 +304,7 @@ The HTML should be production-ready and deployable as-is."""
 
             # Call Claude Sonnet
             message = self.client.messages.create(
-                model="claude-3-5-sonnet-20240620",
+                model="claude-sonnet-4-6",
                 max_tokens=4000,
                 messages=[{"role": "user", "content": prompt}]
             )
@@ -320,7 +320,7 @@ The HTML should be production-ready and deployable as-is."""
             # Log API call
             self._log_api_call(
                 action='generate_landing_page',
-                model='claude-3-5-sonnet-20240620',
+                model='claude-sonnet-4-6',
                 input_tokens=message.usage.input_tokens,
                 output_tokens=message.usage.output_tokens,
                 cost=cost,

@@ -452,7 +452,7 @@ HASHTAGS: [5-7 hashtags separated by spaces]"""
 
         try:
             message = self.client.messages.create(
-                model="claude-3-haiku-20240307",
+                model="claude-haiku-4-5-20251001",
                 max_tokens=2000,
                 messages=[{"role": "user", "content": prompt}],
             )
@@ -497,7 +497,7 @@ HASHTAGS: [5-7 hashtags separated by spaces]"""
             # Log API call
             self._log_api_call(
                 action="linkedin_generate",
-                model="claude-3-haiku-20240307",
+                model="claude-haiku-4-5-20251001",
                 input_tokens=message.usage.input_tokens,
                 output_tokens=message.usage.output_tokens,
                 status="success",
@@ -551,7 +551,7 @@ Respond in this exact JSON format (no other text):
 
         try:
             message = self.client.messages.create(
-                model="claude-3-haiku-20240307",
+                model="claude-haiku-4-5-20251001",
                 max_tokens=500,
                 messages=[{"role": "user", "content": prompt}],
             )
@@ -575,7 +575,7 @@ Respond in this exact JSON format (no other text):
 
             self._log_api_call(
                 action="carousel_generate",
-                model="claude-3-haiku-20240307",
+                model="claude-haiku-4-5-20251001",
                 input_tokens=message.usage.input_tokens,
                 output_tokens=message.usage.output_tokens,
                 status="success",

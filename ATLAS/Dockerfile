@@ -8,6 +8,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
 COPY agents/ agents/
+COPY ops/ ops/
+COPY templates/ templates/
+COPY services/ services/
+COPY content/ content/
 COPY atlas_orchestrator.py .
 COPY atlas_backend.py .
 

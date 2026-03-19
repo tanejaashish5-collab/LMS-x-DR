@@ -338,7 +338,7 @@ REASON: [one sentence explanation]"""
 
             # Call Claude Haiku
             message = self.client.messages.create(
-                model="claude-3-haiku-20240307",
+                model="claude-haiku-4-5-20251001",
                 max_tokens=300,
                 messages=[{"role": "user", "content": prompt}]
             )
@@ -367,7 +367,7 @@ REASON: [one sentence explanation]"""
             # Log API call
             self._log_api_call(
                 action='haiku_filter',
-                model='claude-3-haiku-20240307',
+                model='claude-haiku-4-5-20251001',
                 input_tokens=message.usage.input_tokens,
                 output_tokens=message.usage.output_tokens,
                 status='success' if passed else 'filtered'
@@ -427,7 +427,7 @@ OVERALL_SCORE: [0-100]
 REASONING: [2-3 sentences explaining the score and potential]"""
 
             # Try Sonnet first, fallback to Haiku
-            model = "claude-3-5-sonnet-20240620"
+            model = "claude-sonnet-4-6"
             try:
                 message = self.client.messages.create(
                     model=model,
@@ -436,7 +436,7 @@ REASONING: [2-3 sentences explaining the score and potential]"""
                 )
             except Exception as sonnet_error:
                 logger.warning(f"Sonnet failed, using Haiku: {sonnet_error}")
-                model = "claude-3-haiku-20240307"
+                model = "claude-haiku-4-5-20251001"
                 message = self.client.messages.create(
                     model=model,
                     max_tokens=500,
