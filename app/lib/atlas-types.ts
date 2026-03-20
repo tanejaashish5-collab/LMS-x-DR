@@ -98,6 +98,8 @@ export const AGENT_COLORS: Record<string, string> = {
   vault: "#f59e0b",
   forge: "#ef4444",
   mercury: "#22d3ee",
+  closer: "#10b981",
+  content_creator: "#a855f7",
 };
 
 export const AGENT_ICONS: Record<string, string> = {
@@ -105,4 +107,6 @@ export const AGENT_ICONS: Record<string, string> = {
   vault: "V",
   forge: "F",
   mercury: "M",
+  closer: "C",
+  content_creator: "CC",
 };

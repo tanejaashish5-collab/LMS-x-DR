@@ -53,6 +53,22 @@ export default function BudgetPage() {
   const conservationMode = percentSpent >= 80;
   const monthlyLimit = 250;
 
+  // Estimate real API cost: CLOSER reserves $1/call but actual Anthropic cost is ~$0.03
+  // Scout/Forge/Mercury/Content use varying amounts but are also over-reserved
+  const realCostEstimate = useMemo(() => {
+    let estimate = 0;
+    for (const txn of ledger) {
+      if (txn.type !== "spend") continue;
+      if (txn.agent === "closer") estimate += 0.03;
+      else if (txn.agent === "content_creator") estimate += 0.01;
+      else if (txn.agent === "scout") estimate += 0.02;
+      else if (txn.agent === "forge") estimate += 0.10;
+      else if (txn.agent === "mercury") estimate += 0.01;
+      else estimate += 0.02; // default
+    }
+    return estimate;
+  }, [ledger]);
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
@@ -85,11 +101,19 @@ export default function BudgetPage() {
               ${summary.current_balance.toFixed(2)}
             </div>
           </div>
-          <div className="text-right">
-            <div className="text-xs text-[var(--text-muted)] uppercase tracking-wider mb-1">Spent</div>
+          <div className="text-center">
+            <div className="text-xs text-[var(--text-muted)] uppercase tracking-wider mb-1">Internal Budget Used</div>
             <div className="text-2xl font-bold text-[var(--text-secondary)]">
               ${summary.total_spent.toFixed(2)}
             </div>
+            <div className="text-[10px] text-[var(--text-muted)] mt-0.5">Reserved by Vault</div>
+          </div>
+          <div className="text-right">
+            <div className="text-xs text-[var(--text-muted)] uppercase tracking-wider mb-1">Real API Cost</div>
+            <div className="text-2xl font-bold text-[var(--accent-cyan,#22d3ee)]">
+              ${realCostEstimate.toFixed(2)}
+            </div>
+            <div className="text-[10px] text-[var(--text-muted)] mt-0.5">Est. Anthropic bill</div>
           </div>
         </div>
 
@@ -121,8 +145,8 @@ export default function BudgetPage() {
       </div>
 
       {/* Agent Breakdown */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        {(["scout", "vault", "forge", "mercury"] as const).map((agent) => {
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+        {(["scout", "vault", "forge", "mercury", "closer", "content_creator"] as const).map((agent) => {
           const spent = agentSpend[agent] ?? 0;
           return (
             <div key={agent} className="glass rounded-xl p-4">
