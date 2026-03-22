@@ -286,6 +286,8 @@ TASKS:
 4. Identify the most likely job title of the decision maker
 5. Determine urgency level (low/medium/high)
 6. Write a one-sentence outreach hook
+7. Infer the company name or business name from the post (if not clear, create a plausible one like "the poster's [vertical] business")
+8. Extract or infer a contact email if mentioned, otherwise leave blank
 
 Respond in this exact JSON format:
 {{
@@ -297,6 +299,8 @@ Respond in this exact JSON format:
   "outreach_hook": "...",
   "process_name": "...",
   "hours_lost_weekly": 10,
+  "company_name": "...",
+  "contact_email": "",
   "qualified": true
 }}"""
 
@@ -327,6 +331,7 @@ Respond in this exact JSON format:
                 enrichment = json.loads(response_text.strip())
             except json.JSONDecodeError:
                 logger.warning(f"CLOSER: Failed to parse qualification JSON, using defaults")
+                vertical = opp.get('target_vertical', 'business')
                 enrichment = {
                     "pain_point": opp.get('title', 'Unknown'),
                     "business_size": "small",
@@ -336,6 +341,8 @@ Respond in this exact JSON format:
                     "outreach_hook": f"Saw your post about {opp.get('title', 'automation')}",
                     "process_name": "manual process",
                     "hours_lost_weekly": 10,
+                    "company_name": f"A {vertical} business",
+                    "contact_email": "",
                     "qualified": True,
                 }
 
@@ -380,8 +387,9 @@ Respond in this exact JSON format:
                 'deal_value': qual.estimated_deal_value,
                 'currency': 'AUD',
                 'notes': json.dumps(enrichment),
-                'company_name': enrichment.get('company_name', ''),
+                'company_name': enrichment.get('company_name', '') or f"A {opp.get('target_vertical', 'business')} business",
                 'contact_name': enrichment.get('decision_maker_title', ''),
+                'contact_email': enrichment.get('contact_email', ''),
                 'followup_count': 0,
             }
 
@@ -768,20 +776,21 @@ Make it specific to their situation. No generic filler. Sound human, not AI."""
                 subject = subject.replace('{' + key + '}', str(value))
                 body = body.replace('{' + key + '}', str(value))
 
-            # Save outreach record
+            # Save outreach record (always, even without email — Ashish can DM manually)
             to_email = pipeline_entry.get('contact_email', '')
             outreach_data = {
                 'pipeline_id': pipeline_id,
                 'email_type': followup_type,
                 'subject': subject,
                 'body': body,
-                'to_email': to_email,
-                'status': 'draft',
+                'to_email': to_email or 'MANUAL_DM_REQUIRED',
+                'status': 'draft' if not to_email else 'sending',
             }
 
             self.supabase.table('atlas_outreach').insert(outreach_data).execute()
+            logger.info(f"CLOSER: Outreach record saved for {followup_type} (email={'yes' if to_email else 'manual DM needed'})")
 
-            # Send real email via Resend
+            # Send real email via Resend (only if we have an email address)
             if to_email:
                 email_result = self.email_service.send_email_sync(
                     to=to_email,
@@ -904,13 +913,14 @@ Return JSON: {{"subject": "...", "body": "..."}}"""
                 'email_type': followup_type,
                 'subject': email_subject,
                 'body': email_body,
-                'to_email': to_email,
-                'status': 'draft',
+                'to_email': to_email or 'MANUAL_DM_REQUIRED',
+                'status': 'draft' if not to_email else 'sending',
             }
 
             self.supabase.table('atlas_outreach').insert(outreach_data).execute()
+            logger.info(f"CLOSER: Haiku followup saved for {followup_type} (email={'yes' if to_email else 'manual DM needed'})")
 
-            # Send real email via Resend
+            # Send real email via Resend (only if we have an email address)
             if to_email:
                 email_result = self.email_service.send_email_sync(
                     to=to_email,
