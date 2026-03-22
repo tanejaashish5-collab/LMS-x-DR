@@ -14,6 +14,7 @@ import type {
   AtlasExperiment,
   AtlasAgentLog,
   AtlasPipelineItem,
+  PendingApprovalItem,
 } from "./atlas-types";
 
 /* ─── Data source flag ─── */
@@ -155,6 +156,43 @@ export async function getPipeline(): Promise<AtlasPipelineItem[]> {
     return (data as AtlasPipelineItem[]) ?? mockPipeline;
   } catch {
     return mockPipeline;
+  }
+}
+
+/* ─── Pending Approvals ─── */
+
+export async function getPendingApprovals(): Promise<{
+  pending: PendingApprovalItem[];
+  count: number;
+}> {
+  if (!isLive() || !supabase) {
+    return { pending: [], count: 0 };
+  }
+  try {
+    const { data, error } = await supabase
+      .from("atlas_pipeline")
+      .select(
+        "*, atlas_opportunities(title, target_vertical, source_url, sonnet_score)"
+      )
+      .eq("stage", "pending_review")
+      .order("created_at", { ascending: false });
+    if (error) throw error;
+
+    const entries = (data ?? []) as PendingApprovalItem[];
+
+    // Fetch proposals for each entry
+    for (const entry of entries) {
+      const { data: proposals } = await supabase
+        .from("atlas_proposals")
+        .select("*")
+        .eq("pipeline_id", entry.id)
+        .order("created_at", { ascending: false });
+      entry.proposals = proposals ?? [];
+    }
+
+    return { pending: entries, count: entries.length };
+  } catch {
+    return { pending: [], count: 0 };
   }
 }
 

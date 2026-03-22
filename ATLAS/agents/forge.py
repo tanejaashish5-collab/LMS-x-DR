@@ -23,6 +23,10 @@ from dataclasses import dataclass
 from supabase import create_client, Client
 import anthropic
 
+from utils.retry import retry_with_backoff
+from ops.landing_page_playbook import get_landing_page_spec, get_forge_prompt_context
+from ops.brand import BRAND
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -114,6 +118,31 @@ class FORGEAgent:
         self.vault = vault_agent
 
         logger.info("FORGE initialized - Ready to build landing pages")
+
+    # ===========================================
+    # Retry-Wrapped API Calls
+    # ===========================================
+
+    @retry_with_backoff(max_retries=3, base_delay=2.0, exceptions=(Exception,))
+    def _call_anthropic(self, model: str, max_tokens: int, messages: list):
+        """Wrapper for Anthropic API calls with retry."""
+        return self.client.messages.create(
+            model=model,
+            max_tokens=max_tokens,
+            messages=messages,
+        )
+
+    @retry_with_backoff(max_retries=3, base_delay=2.0, exceptions=(Exception,))
+    def _call_vercel_deploy(self, url: str, headers: dict, payload: dict):
+        """Wrapper for Vercel deployment API calls with retry."""
+        response = requests.post(url, headers=headers, json=payload, timeout=60)
+        response.raise_for_status()
+        return response.json()
+
+    @retry_with_backoff(max_retries=1, base_delay=0.5, exceptions=(Exception,))
+    def _call_supabase_insert(self, table: str, data: dict):
+        """Wrapper for Supabase inserts with light retry."""
+        return self.supabase.table(table).insert(data).execute()
 
     # ===========================================
     # Main Landing Page Pipeline
@@ -261,7 +290,24 @@ class FORGEAgent:
             Dict with html, success, cost, error
         """
         try:
-            prompt = f"""You are an expert landing page designer. Create a high-converting, modern landing page for this automation service opportunity.
+            # --- Landing Page Playbook Context ---
+            page_spec_context = get_forge_prompt_context(request.target_vertical)
+            page_spec_block = ""
+            if page_spec_context:
+                page_spec_block = f"""
+DESIGN SPECIFICATIONS FOR {request.target_vertical.upper()}:
+{page_spec_context}
+"""
+
+            prompt = f"""You are an expert landing page designer at {BRAND.company_name}. Create a high-converting, modern landing page for this automation service opportunity.
+
+BRAND:
+- Company: {BRAND.company_name}
+- Website: {BRAND.website}
+- Founder: {BRAND.founder}
+- Tagline: {BRAND.tagline}
+- Location: {BRAND.location}
+- Booking Link: {BRAND.founder_calendly}
 
 BUSINESS OPPORTUNITY:
 - Title: {request.opportunity_title}
@@ -269,7 +315,7 @@ BUSINESS OPPORTUNITY:
 - Value Proposition: {request.value_proposition}
 - CTA Text: {request.cta_text}
 - CTA Action: {request.cta_action}
-
+{page_spec_block}
 REQUIREMENTS:
 1. Single-page HTML with embedded CSS and JavaScript (no external files)
 2. Modern, professional design with dark theme
@@ -279,7 +325,7 @@ REQUIREMENTS:
 6. Social proof section (testimonials/stats)
 7. Pricing/offer section (clear pricing)
 8. Strong call-to-action button that links to {request.cta_action}
-9. Footer with contact info and links
+9. Footer with {BRAND.company_name} branding, contact info, and links
 10. Fast loading (no heavy images or external dependencies)
 
 DESIGN STYLE:
@@ -302,8 +348,8 @@ Start with <!DOCTYPE html> and include everything in a single file.
 
 The HTML should be production-ready and deployable as-is."""
 
-            # Call Claude Sonnet
-            message = self.client.messages.create(
+            # Call Claude Sonnet (with retry)
+            message = self._call_anthropic(
                 model="claude-sonnet-4-6",
                 max_tokens=4000,
                 messages=[{"role": "user", "content": prompt}]
@@ -424,11 +470,8 @@ The HTML should be production-ready and deployable as-is."""
                 "target": "production"
             }
 
-            # Deploy to Vercel
-            response = requests.post(url, headers=headers, json=payload, timeout=60)
-            response.raise_for_status()
-
-            deployment_data = response.json()
+            # Deploy to Vercel (with retry)
+            deployment_data = self._call_vercel_deploy(url, headers, payload)
             deployment_url = f"https://{deployment_data['url']}"
             deployment_id = deployment_data['id']
 
@@ -495,14 +538,14 @@ The HTML should be production-ready and deployable as-is."""
             cost: Total cost
         """
         try:
-            self.supabase.table('atlas_agent_logs').insert({
+            self._call_supabase_insert('atlas_agent_logs', {
                 'agent': 'forge',
                 'action': 'build_landing_page',
                 'input': f"Experiment: {experiment_id}",
                 'output': f"Deployed to {url}",
                 'cost_usd': cost,
-                'status': 'success'
-            }).execute()
+                'status': 'success',
+            })
 
         except Exception as e:
             logger.error(f"FORGE: Failed to log build: {e}")
@@ -518,15 +561,15 @@ The HTML should be production-ready and deployable as-is."""
     ):
         """Log API call to agent logs"""
         try:
-            self.supabase.table('atlas_agent_logs').insert({
+            self._call_supabase_insert('atlas_agent_logs', {
                 'agent': 'forge',
                 'action': action,
                 'model_used': model,
                 'tokens_in': input_tokens,
                 'tokens_out': output_tokens,
                 'cost_usd': cost,
-                'status': status
-            }).execute()
+                'status': status,
+            })
 
         except Exception as e:
             logger.error(f"FORGE: Failed to log API call: {e}")

@@ -79,6 +79,7 @@ export interface AtlasPipelineItem {
 export type PipelineStage =
   | "discovered"
   | "qualified"
+  | "pending_review"
   | "proposed"
   | "responded"
   | "closed"
@@ -87,11 +88,46 @@ export type PipelineStage =
 export const PIPELINE_STAGES: { key: PipelineStage; label: string; color: string }[] = [
   { key: "discovered", label: "Discovered", color: "#6366f1" },
   { key: "qualified", label: "Qualified", color: "#8b5cf6" },
+  { key: "pending_review", label: "Pending Review", color: "#f59e0b" },
   { key: "proposed", label: "Proposed", color: "#22d3ee" },
   { key: "responded", label: "Responded", color: "#f59e0b" },
   { key: "closed", label: "Closed", color: "#34d399" },
   { key: "delivering", label: "Delivering", color: "#10b981" },
 ];
+
+/* ─── Pending Approval Types ─── */
+
+export interface PendingProposal {
+  id: string;
+  pipeline_id: string;
+  opportunity_id: string | null;
+  proposal_type: string;
+  content: string; // JSON string
+  pricing: string; // JSON string
+  roi_estimate: string; // JSON string
+  status: string;
+  created_at: string;
+}
+
+export interface PendingApprovalItem {
+  id: string;
+  opportunity_id: string | null;
+  stage: string;
+  company_name: string;
+  contact_name: string;
+  contact_email: string;
+  deal_value: number;
+  currency: string;
+  notes: string | null;
+  created_at: string;
+  atlas_opportunities: {
+    title: string;
+    target_vertical: string | null;
+    source_url: string;
+    sonnet_score: number | null;
+  } | null;
+  proposals: PendingProposal[];
+}
 
 export const AGENT_COLORS: Record<string, string> = {
   scout: "#6366f1",

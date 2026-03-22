@@ -21,7 +21,12 @@ from dataclasses import dataclass, field
 from supabase import create_client, Client
 import anthropic
 
+from agents.memory import AgentMemory
 from services.email_service import get_email_service
+from utils.retry import retry_with_backoff
+from ops.playbook import get_playbook_for_vertical, VERTICALS
+from ops.pricing import get_pricing, format_pricing_table
+from ops.brand import BRAND
 
 # Configure logging
 logging.basicConfig(
@@ -38,6 +43,7 @@ logger = logging.getLogger('CLOSER')
 PIPELINE_STAGES = [
     "discovered",
     "qualified",
+    "pending_review",
     "proposed",
     "responded",
     "negotiating",
@@ -148,10 +154,73 @@ class CLOSERAgent:
         # VAULT integration
         self.vault = vault_agent
 
+        # Initialize memory system
+        self.memory = AgentMemory('closer', self.supabase)
+
         # Email service (real sending via Resend)
         self.email_service = get_email_service(self.supabase)
 
         logger.info("CLOSER initialized - Ready to close deals")
+
+    # ===========================================
+    # Retry-Wrapped API Calls
+    # ===========================================
+
+    @retry_with_backoff(max_retries=3, base_delay=2.0, exceptions=(Exception,))
+    def _call_anthropic(self, model: str, max_tokens: int, messages: list):
+        """Wrapper for Anthropic API calls with retry."""
+        return self.client.messages.create(
+            model=model,
+            max_tokens=max_tokens,
+            messages=messages,
+        )
+
+    @retry_with_backoff(max_retries=1, base_delay=0.5, exceptions=(Exception,))
+    def _call_supabase_insert(self, table: str, data: dict):
+        """Wrapper for Supabase inserts with light retry."""
+        return self.supabase.table(table).insert(data).execute()
+
+    # ===========================================
+    # Deduplication Checks
+    # ===========================================
+
+    def _is_already_in_pipeline(self, opportunity_id: str) -> bool:
+        """
+        Check if opportunity already has a pipeline entry.
+
+        Args:
+            opportunity_id: Opportunity ID to check.
+
+        Returns:
+            True if already in pipeline.
+        """
+        try:
+            result = self.supabase.table('atlas_pipeline').select('id').eq(
+                'opportunity_id', opportunity_id
+            ).execute()
+            return bool(result.data)
+        except Exception as e:
+            logger.error(f"CLOSER: Pipeline dedup check failed: {e}")
+            return False
+
+    def _has_proposal(self, pipeline_id: str) -> bool:
+        """
+        Check if a pipeline entry already has a proposal.
+
+        Args:
+            pipeline_id: Pipeline entry ID to check.
+
+        Returns:
+            True if proposal already exists.
+        """
+        try:
+            result = self.supabase.table('atlas_proposals').select('id').eq(
+                'pipeline_id', pipeline_id
+            ).execute()
+            return bool(result.data)
+        except Exception as e:
+            logger.error(f"CLOSER: Proposal dedup check failed: {e}")
+            return False
 
     # ===========================================
     # Main Pipeline Operations
@@ -191,6 +260,19 @@ class CLOSERAgent:
 
             # Step 4: Log the run
             self._log_pipeline_run(results)
+
+            # Step 5: Record pipeline cycle to memory for learning
+            self.memory.remember(
+                'performance',
+                f'pipeline_run_{datetime.now().strftime("%Y%m%d_%H%M")}',
+                {
+                    'qualified': qualified_count,
+                    'proposals': proposals_count,
+                    'followups': followups_count,
+                    'errors': len(results.get('errors', [])),
+                },
+                confidence=0.9,
+            )
 
         except Exception as e:
             logger.error(f"CLOSER: Pipeline cycle error: {e}", exc_info=True)
@@ -233,14 +315,30 @@ class CLOSERAgent:
                 logger.info("CLOSER: No new opportunities to qualify")
                 return 0
 
-            # Filter out ones already in pipeline
+            # Filter out ones already in pipeline (batch query)
             opp_ids = [o['id'] for o in opps.data]
             existing = self.supabase.table('atlas_pipeline').select(
                 'opportunity_id'
             ).in_('opportunity_id', opp_ids).execute()
 
             existing_ids = {e['opportunity_id'] for e in (existing.data or [])}
-            new_opps = [o for o in opps.data if o['id'] not in existing_ids]
+
+            # Also check memory for previously contacted opportunities
+            contacted_memories = self.memory.recall('contact', limit=500)
+            contacted_ids = {m['key'] for m in contacted_memories}
+
+            new_opps = [
+                o for o in opps.data
+                if o['id'] not in existing_ids and o['id'] not in contacted_ids
+            ]
+
+            skipped = len(opps.data) - len(new_opps)
+            if skipped > 0:
+                logger.info(
+                    f"CLOSER: Dedup skipped {skipped} opportunities "
+                    f"({len(existing_ids)} in pipeline, "
+                    f"{len(contacted_ids & set(opp_ids))} in memory)"
+                )
 
             if not new_opps:
                 logger.info("CLOSER: All high-scoring opportunities already in pipeline")
@@ -252,6 +350,18 @@ class CLOSERAgent:
                 if result.qualified:
                     self._create_pipeline_entry(opp, result)
                     qualified_count += 1
+
+                    # Remember this contact in memory
+                    self.memory.remember(
+                        'contact',
+                        opp['id'],
+                        {
+                            'source_url': opp.get('source_url', ''),
+                            'contacted_at': datetime.now().isoformat(),
+                            'channel': 'reddit',
+                            'vertical': opp.get('target_vertical', 'unknown'),
+                        },
+                    )
 
             return qualified_count
 
@@ -304,10 +414,10 @@ Respond in this exact JSON format:
   "qualified": true
 }}"""
 
-            message = self.client.messages.create(
+            message = self._call_anthropic(
                 model="claude-haiku-4-5-20251001",
                 max_tokens=500,
-                messages=[{"role": "user", "content": prompt}]
+                messages=[{"role": "user", "content": prompt}],
             )
 
             response_text = message.content[0].text.strip()
@@ -505,7 +615,36 @@ Respond in this exact JSON format:
             # Load the right proposal template context
             template_context = self._get_template_context(vertical)
 
-            prompt = f"""You are a senior business development consultant. Generate a compelling, personalized proposal for this automation service opportunity.
+            # --- Ops Playbook Context ---
+            playbook = get_playbook_for_vertical(vertical)
+            playbook_context = ""
+            if playbook:
+                playbook_context = (
+                    f"\nVERTICAL PLAYBOOK ({playbook.vertical}):\n"
+                    f"- Target Persona: {playbook.target_persona}\n"
+                    f"- Common Pain Points: {', '.join(playbook.pain_points[:3])}\n"
+                    f"- Recommended Solution: {playbook.solution_type}\n"
+                    f"- Estimated Close Rate: {playbook.estimated_close_rate:.0%}\n"
+                    f"- Average Deal Size: ${playbook.average_deal_size:,.0f} AUD\n"
+                    f"- Delivery Timeline: {playbook.delivery_timeline}\n"
+                )
+
+            # --- Real Pricing from Ops ---
+            pricing_service = 'landing_page'
+            if playbook and playbook.solution_type == 'automation_workflow':
+                pricing_service = 'automation_workflow'
+            elif playbook and playbook.solution_type == 'full_digital_presence':
+                pricing_service = 'full_digital_presence'
+            pricing_table = format_pricing_table(pricing_service)
+
+            prompt = f"""You are a senior business development consultant at {BRAND.company_name}. Generate a compelling, personalized proposal for this automation service opportunity.
+
+BRAND CONTEXT:
+- Company: {BRAND.company_name}
+- Tagline: {BRAND.tagline}
+- Founder: {BRAND.founder}
+- Website: {BRAND.website}
+- Location: {BRAND.location}
 
 OPPORTUNITY:
 Title: {opportunity.get('title', 'Business Automation')}
@@ -520,11 +659,9 @@ Decision Maker: {notes.get('decision_maker_title', 'Business Owner')}
 Urgency: {notes.get('urgency', 'medium')}
 Hours Lost Weekly: {notes.get('hours_lost_weekly', 10)}
 Process: {notes.get('process_name', 'manual process')}
-
-PRICING TIERS (AUD):
-- Basic ($997): Single workflow, 2 integrations, 30-day warranty
-- Pro ($2,497): Up to 3 workflows, 5 integrations, monitoring, 90-day warranty
-- Enterprise ($4,997): Unlimited workflows, custom dev, SLA, 12-month warranty
+{playbook_context}
+PRICING:
+{pricing_table}
 
 TEMPLATE CONTEXT:
 {template_context}
@@ -550,10 +687,10 @@ Generate a proposal in this exact JSON format:
 
 Make it specific to their situation. No generic filler. Sound human, not AI."""
 
-            message = self.client.messages.create(
+            message = self._call_anthropic(
                 model="claude-sonnet-4-6",
                 max_tokens=2000,
-                messages=[{"role": "user", "content": prompt}]
+                messages=[{"role": "user", "content": prompt}],
             )
 
             response_text = message.content[0].text.strip()
@@ -585,6 +722,100 @@ Make it specific to their situation. No generic filler. Sound human, not AI."""
                 logger.error("CLOSER: Failed to parse proposal JSON from Sonnet")
                 return False
 
+            # -----------------------------------------------
+            # Reflection: Critique the first draft with Haiku
+            # -----------------------------------------------
+            first_draft_json = json.dumps(proposal_data, indent=2)
+            was_revised = False
+            quality_score: Optional[float] = None
+
+            critique_result = self._critique_proposal(
+                first_draft_json,
+                vertical=opportunity.get('target_vertical', 'general'),
+                pain_point=notes.get('pain_point', 'manual processes'),
+                deal_value=pipeline_entry.get('deal_value', 997),
+            )
+
+            if critique_result:
+                quality_score = critique_result.get('score')
+                logger.info(
+                    f"CLOSER: Proposal critique score: {quality_score}/10 "
+                    f"for pipeline {pipeline_id}"
+                )
+
+                if quality_score is not None and quality_score < 7:
+                    revised_text = critique_result.get('revised_proposal', '')
+                    if revised_text:
+                        # Try to parse revised proposal as JSON
+                        try:
+                            revised_data = json.loads(revised_text)
+                            proposal_data = revised_data
+                            was_revised = True
+                            logger.info(
+                                f"CLOSER: Using revised proposal "
+                                f"(score {quality_score} < 7)"
+                            )
+                        except json.JSONDecodeError:
+                            # Revised proposal is plain text, keep
+                            # original JSON but update intro
+                            proposal_data['intro_paragraph'] = revised_text
+                            was_revised = True
+                            logger.info(
+                                "CLOSER: Revised proposal was plain text, "
+                                "used as intro override"
+                            )
+
+                # Log reflection result
+                self._log_api_call(
+                    action='proposal_reflection',
+                    model='claude-haiku-4-5-20251001',
+                    input_tokens=0,
+                    output_tokens=0,
+                    status='success',
+                    cost=0.03,
+                )
+
+            # -----------------------------------------------
+            # Evaluation: Score final proposal with evaluator
+            # -----------------------------------------------
+            eval_score: Optional[float] = None
+            eval_dimensions: Optional[Dict[str, float]] = None
+
+            try:
+                from agents.evaluator import AgentEvaluator
+
+                evaluator = AgentEvaluator(
+                    supabase_url=self.supabase_url,
+                    supabase_key=self.supabase_key,
+                    anthropic_key=self.anthropic_key,
+                )
+                eval_result = evaluator.evaluate_proposal(
+                    proposal_text=json.dumps(proposal_data, indent=2),
+                    context={
+                        'vertical': opportunity.get('target_vertical', ''),
+                        'pain_point': notes.get('pain_point', ''),
+                        'deal_value': pipeline_entry.get('deal_value', 997),
+                        'business_size': notes.get('business_size', 'small'),
+                    },
+                )
+                eval_score = eval_result.score
+                eval_dimensions = eval_result.dimensions
+                logger.info(
+                    f"CLOSER: Proposal eval score: {eval_score}/100 "
+                    f"(pass={eval_result.pass_threshold})"
+                )
+            except ImportError:
+                logger.warning("CLOSER: Evaluator not available, skipping eval")
+            except Exception as eval_err:
+                logger.warning(f"CLOSER: Eval failed: {eval_err}")
+
+            # Gate: Only advance to proposed if eval_score > 50
+            if eval_score is not None and eval_score <= 50:
+                logger.warning(
+                    f"CLOSER: Proposal for {pipeline_id} scored {eval_score}/100 "
+                    f"-- below threshold, saving as draft only"
+                )
+
             # Build pricing structure
             pricing = {
                 "basic": {"price": 997, "currency": "AUD"},
@@ -596,8 +827,8 @@ Make it specific to their situation. No generic filler. Sound human, not AI."""
 
             roi_estimate = proposal_data.get('roi_estimate', {})
 
-            # Save proposal to database
-            proposal_record = {
+            # Save proposal to database (with quality tracking)
+            proposal_record: Dict[str, Any] = {
                 'pipeline_id': pipeline_id,
                 'opportunity_id': opportunity.get('id'),
                 'proposal_type': 'initial',
@@ -607,6 +838,16 @@ Make it specific to their situation. No generic filler. Sound human, not AI."""
                 'status': 'draft',
             }
 
+            # Add quality columns if available
+            if quality_score is not None:
+                proposal_record['quality_score'] = quality_score
+            if was_revised:
+                proposal_record['was_revised'] = was_revised
+            if eval_score is not None:
+                proposal_record['eval_score'] = eval_score
+            if eval_dimensions is not None:
+                proposal_record['eval_dimensions'] = json.dumps(eval_dimensions)
+
             result = self.supabase.table('atlas_proposals').insert(
                 proposal_record
             ).execute()
@@ -614,11 +855,30 @@ Make it specific to their situation. No generic filler. Sound human, not AI."""
             if result.data:
                 logger.info(
                     f"CLOSER: Proposal generated for {pipeline_id} "
-                    f"(recommended: {pricing['recommended']}, cost: ${cost:.2f})"
+                    f"(recommended: {pricing['recommended']}, cost: ${cost:.2f}, "
+                    f"quality: {quality_score}, revised: {was_revised}, "
+                    f"eval: {eval_score})"
                 )
 
-                # Advance pipeline stage to proposed
-                self._advance_stage(pipeline_id, 'proposed')
+                # Advance to pending_review (human approval gate)
+                # Ashish must approve before proposal email is sent
+                if eval_score is None or eval_score > 50:
+                    self._advance_stage(pipeline_id, 'pending_review')
+
+                # Record proposal in memory for dedup and learning
+                self.memory.remember(
+                    'contact',
+                    pipeline_id,
+                    {
+                        'proposed_at': datetime.now().isoformat(),
+                        'pricing_tier': pricing.get('recommended', 'pro'),
+                        'deal_value': pipeline_entry.get('deal_value', 0),
+                        'vertical': vertical,
+                        'quality_score': quality_score,
+                        'eval_score': eval_score,
+                    },
+                )
+
                 return True
 
             return False
@@ -651,6 +911,98 @@ Make it specific to their situation. No generic filler. Sound human, not AI."""
             )
         except ImportError:
             return f"Vertical: {vertical}"
+
+    # ===========================================
+    # Proposal Reflection (Self-Critique)
+    # ===========================================
+
+    def _critique_proposal(
+        self,
+        proposal_json: str,
+        vertical: str,
+        pain_point: str,
+        deal_value: float,
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Critique a proposal draft using Claude Haiku.
+
+        Sends the first draft to Haiku for a self-critique loop.
+        If the critique scores < 7, the revised_proposal is used instead.
+
+        Args:
+            proposal_json: JSON string of the first draft proposal.
+            vertical: Target vertical name.
+            pain_point: Primary pain point identified.
+            deal_value: Estimated deal value in AUD.
+
+        Returns:
+            Dict with score, weaknesses, improvements, revised_proposal
+            or None on failure.
+        """
+        try:
+            critique_prompt = f"""You are a senior sales consultant reviewing this proposal before it goes to a client.
+
+PROPOSAL:
+{proposal_json}
+
+TARGET CLIENT:
+- Vertical: {vertical}
+- Pain Point: {pain_point}
+- Deal Value: ${deal_value:.0f} AUD
+
+REVIEW CHECKLIST:
+1. Is the opening personalized enough? (References their specific pain, not generic)
+2. Is the value proposition clear and specific to their industry?
+3. Are the pricing tiers appropriate for this vertical/business size?
+4. Is the CTA clear and low-friction?
+5. Is the tone professional but human (not AI-sounding)?
+6. Are there any claims that can't be backed up?
+
+Score this proposal 1-10 and provide specific improvements.
+
+Respond in JSON:
+{{
+  "score": 7,
+  "weaknesses": ["Opening is too generic", "Missing industry-specific ROI"],
+  "improvements": ["Reference their specific Reddit post", "Add a concrete ROI number"],
+  "revised_proposal": "...the improved full proposal text..."
+}}"""
+
+            message = self._call_anthropic(
+                model="claude-haiku-4-5-20251001",
+                max_tokens=3000,
+                messages=[{"role": "user", "content": critique_prompt}],
+            )
+
+            response_text = message.content[0].text.strip()
+
+            # Log the critique API call
+            self._log_api_call(
+                action='critique_proposal',
+                model='claude-haiku-4-5-20251001',
+                input_tokens=message.usage.input_tokens,
+                output_tokens=message.usage.output_tokens,
+                status='success',
+            )
+
+            # Parse JSON response
+            try:
+                if response_text.startswith('```'):
+                    response_text = response_text.split('```')[1]
+                    if response_text.startswith('json'):
+                        response_text = response_text[4:]
+                critique_data = json.loads(response_text.strip())
+            except json.JSONDecodeError:
+                logger.warning(
+                    "CLOSER: Failed to parse critique JSON, skipping reflection"
+                )
+                return None
+
+            return critique_data
+
+        except Exception as e:
+            logger.error(f"CLOSER: Proposal critique failed: {e}")
+            return None
 
     # ===========================================
     # Step 3: Follow-ups
@@ -877,10 +1229,10 @@ Requirements:
 
 Return JSON: {{"subject": "...", "body": "..."}}"""
 
-            message = self.client.messages.create(
+            message = self._call_anthropic(
                 model="claude-haiku-4-5-20251001",
                 max_tokens=400,
-                messages=[{"role": "user", "content": prompt}]
+                messages=[{"role": "user", "content": prompt}],
             )
 
             self._log_api_call(
@@ -1047,6 +1399,7 @@ Return JSON: {{"subject": "...", "body": "..."}}"""
         # Set stage-specific timestamps
         timestamp_fields = {
             'qualified': 'qualified_at',
+            'pending_review': 'pending_review_at',
             'proposed': 'proposed_at',
             'responded': 'responded_at',
             'closed_won': 'closed_at',
@@ -1259,7 +1612,7 @@ Actions Needed:
                 else:
                     cost = (input_tokens * 0.003 + output_tokens * 0.015) / 1000
 
-            self.supabase.table('atlas_agent_logs').insert({
+            self._call_supabase_insert('atlas_agent_logs', {
                 'agent': 'closer',
                 'action': action,
                 'model_used': model,
@@ -1267,7 +1620,7 @@ Actions Needed:
                 'tokens_out': output_tokens,
                 'cost_usd': cost,
                 'status': status,
-            }).execute()
+            })
 
         except Exception as e:
             logger.error(f"CLOSER: Failed to log API call: {e}")
@@ -1275,7 +1628,7 @@ Actions Needed:
     def _log_pipeline_run(self, results: Dict[str, Any]) -> None:
         """Log pipeline run summary."""
         try:
-            self.supabase.table('atlas_agent_logs').insert({
+            self._call_supabase_insert('atlas_agent_logs', {
                 'agent': 'closer',
                 'action': 'pipeline_run',
                 'input': json.dumps({
@@ -1285,7 +1638,7 @@ Actions Needed:
                 }),
                 'output': json.dumps(results),
                 'status': 'success' if not results.get('errors') else 'partial',
-            }).execute()
+            })
 
         except Exception as e:
             logger.error(f"CLOSER: Failed to log pipeline run: {e}")

@@ -17,6 +17,9 @@ from dataclasses import dataclass, field
 from supabase import create_client, Client
 import anthropic
 
+from utils.retry import retry_with_backoff
+from ops.brand import BRAND
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -183,6 +186,24 @@ class ContentCreatorAgent:
 
         self.vault = vault_agent
         logger.info("CONTENT_CREATOR initialized - Ready to generate content")
+
+    # ===========================================
+    # Retry-Wrapped API Calls
+    # ===========================================
+
+    @retry_with_backoff(max_retries=3, base_delay=2.0, exceptions=(Exception,))
+    def _call_anthropic(self, model: str, max_tokens: int, messages: list):
+        """Wrapper for Anthropic API calls with retry."""
+        return self.client.messages.create(
+            model=model,
+            max_tokens=max_tokens,
+            messages=messages,
+        )
+
+    @retry_with_backoff(max_retries=1, base_delay=0.5, exceptions=(Exception,))
+    def _call_supabase_insert(self, table: str, data: dict):
+        """Wrapper for Supabase inserts with light retry."""
+        return self.supabase.table(table).insert(data).execute()
 
     # ===========================================
     # Public Methods
@@ -412,7 +433,7 @@ class ContentCreatorAgent:
             ),
         }
 
-        prompt = f"""You are Ashish Taneja, founder of ForgeVoice Studio. Write a LinkedIn post.
+        prompt = f"""You are {BRAND.founder}, founder of {BRAND.company_name}. Write a LinkedIn post.
 
 VOICE RULES (non-negotiable):
 - Direct, confident, founder-tone. NOT corporate. NOT AI-sounding.
@@ -421,12 +442,12 @@ VOICE RULES (non-negotiable):
 - Short paragraphs (1-3 sentences max).
 - Start with a hook line that stops the scroll.
 - No fluff. No filler. Every sentence earns its place.
-- Australian founder based in Canberra building with AI.
+- Australian founder based in {BRAND.location} building with AI.
 
 BRAND:
-- Company: ForgeVoice Studio
-- What we do: AI-powered landing pages and digital solutions, delivered in 72 hours
-- Website: https://forgevoice.studio
+- Company: {BRAND.company_name}
+- What we do: {BRAND.value_prop}
+- Website: {BRAND.website}
 - AI engine: ATLAS (5 autonomous agents) - can mention when relevant
 - Pricing: Starting at $997 AUD for landing pages
 
@@ -451,7 +472,7 @@ HEADLINE: [compelling headline, max 100 chars]
 HASHTAGS: [5-7 hashtags separated by spaces]"""
 
         try:
-            message = self.client.messages.create(
+            message = self._call_anthropic(
                 model="claude-haiku-4-5-20251001",
                 max_tokens=2000,
                 messages=[{"role": "user", "content": prompt}],
@@ -550,7 +571,7 @@ Respond in this exact JSON format (no other text):
 ]"""
 
         try:
-            message = self.client.messages.create(
+            message = self._call_anthropic(
                 model="claude-haiku-4-5-20251001",
                 max_tokens=500,
                 messages=[{"role": "user", "content": prompt}],
@@ -631,7 +652,7 @@ Respond in this exact JSON format (no other text):
                 "scheduled_for": content.scheduled_for,
             }
 
-            result = self.supabase.table("atlas_content").insert(data).execute()
+            result = self._call_supabase_insert("atlas_content", data)
 
             if result.data:
                 logger.info(
@@ -664,31 +685,27 @@ Respond in this exact JSON format (no other text):
             else:
                 cost = (input_tokens * 0.003 + output_tokens * 0.015) / 1000
 
-            self.supabase.table("atlas_agent_logs").insert(
-                {
-                    "agent": "content_creator",
-                    "action": action,
-                    "model_used": model,
-                    "tokens_in": input_tokens,
-                    "tokens_out": output_tokens,
-                    "cost_usd": cost,
-                    "status": status,
-                }
-            ).execute()
+            self._call_supabase_insert("atlas_agent_logs", {
+                "agent": "content_creator",
+                "action": action,
+                "model_used": model,
+                "tokens_in": input_tokens,
+                "tokens_out": output_tokens,
+                "cost_usd": cost,
+                "status": status,
+            })
         except Exception as e:
             logger.error(f"Failed to log API call: {e}")
 
     def _log_agent_action(self, action: str, details: str) -> None:
         """Log a general agent action."""
         try:
-            self.supabase.table("atlas_agent_logs").insert(
-                {
-                    "agent": "content_creator",
-                    "action": action,
-                    "input": details,
-                    "status": "success",
-                }
-            ).execute()
+            self._call_supabase_insert("atlas_agent_logs", {
+                "agent": "content_creator",
+                "action": action,
+                "input": details,
+                "status": "success",
+            })
         except Exception as e:
             logger.error(f"Failed to log action: {e}")
 

@@ -509,6 +509,120 @@ async def list_pipeline():
     return {"pipeline": result.data or [], "count": len(result.data or [])}
 
 
+@app.get("/api/pipeline/pending")
+async def get_pending_approvals():
+    """Get all pipeline entries pending human review."""
+    orchestrator = ATLASOrchestrator()
+    sb = orchestrator.closer.supabase
+
+    pending = sb.table('atlas_pipeline').select(
+        '*, atlas_opportunities(title, target_vertical, source_url, sonnet_score)'
+    ).eq('stage', 'pending_review').order('created_at', desc=True).execute()
+
+    results = []
+    for entry in (pending.data or []):
+        proposals = sb.table('atlas_proposals').select('*').eq(
+            'pipeline_id', entry['id']
+        ).order('created_at', desc=True).execute()
+        entry['proposals'] = proposals.data or []
+        results.append(entry)
+
+    return {"pending": results, "count": len(results)}
+
+
+@app.post("/api/pipeline/{pipeline_id}/approve")
+async def approve_proposal(pipeline_id: str):
+    """Approve a proposal -- moves to 'proposed' stage and triggers email send."""
+    orchestrator = ATLASOrchestrator()
+    sb = orchestrator.closer.supabase
+
+    # Verify it's in pending_review
+    entry = sb.table('atlas_pipeline').select('*').eq('id', pipeline_id).execute()
+    if not entry.data or entry.data[0]['stage'] != 'pending_review':
+        raise HTTPException(status_code=400, detail="Entry not in pending_review stage")
+
+    # Move to proposed
+    sb.table('atlas_pipeline').update({
+        'stage': 'proposed',
+        'proposed_at': datetime.now().isoformat(),
+    }).eq('id', pipeline_id).execute()
+
+    # Now trigger email send for the proposal
+    proposal = sb.table('atlas_proposals').select('*').eq(
+        'pipeline_id', pipeline_id
+    ).order('created_at', desc=True).limit(1).execute()
+
+    email_sent = False
+    if proposal.data:
+        to_email = entry.data[0].get('contact_email', '')
+        if to_email and to_email != 'MANUAL_DM_REQUIRED':
+            try:
+                from services.email_service import get_email_service
+                email_svc = get_email_service(sb)
+                content = proposal.data[0].get('content', '{}')
+                if isinstance(content, str):
+                    content = json.loads(content)
+                subject = content.get('subject', f"Your Custom Automation Solution")
+                intro = content.get('intro_paragraph', content.get('executive_summary', ''))
+                email_svc.send_email_sync(
+                    to=to_email,
+                    subject=subject,
+                    body=intro,
+                    pipeline_id=pipeline_id,
+                    email_type='proposal',
+                )
+                email_sent = True
+            except Exception as e:
+                logger.warning(f"Approval email send failed: {e}")
+
+    # Log the approval
+    sb.table('atlas_communications').insert({
+        'pipeline_id': pipeline_id,
+        'channel': 'system',
+        'direction': 'outbound',
+        'subject': 'Proposal approved by Ashish',
+        'content': f'Proposal approved and moved to proposed stage. Email sent: {email_sent}',
+        'sentiment': 'positive',
+    }).execute()
+
+    return {
+        "status": "approved",
+        "pipeline_id": pipeline_id,
+        "stage": "proposed",
+        "email_sent": email_sent,
+    }
+
+
+@app.post("/api/pipeline/{pipeline_id}/reject")
+async def reject_proposal(pipeline_id: str):
+    """Reject a proposal -- moves to 'closed_lost'."""
+    orchestrator = ATLASOrchestrator()
+    sb = orchestrator.closer.supabase
+
+    # Verify it's in pending_review
+    entry = sb.table('atlas_pipeline').select('*').eq('id', pipeline_id).execute()
+    if not entry.data or entry.data[0]['stage'] != 'pending_review':
+        raise HTTPException(status_code=400, detail="Entry not in pending_review stage")
+
+    sb.table('atlas_pipeline').update({
+        'stage': 'closed_lost',
+        'closed_at': datetime.now().isoformat(),
+        'notes': json.dumps({"reason": "Rejected in review by Ashish"}),
+    }).eq('id', pipeline_id).execute()
+
+    # Log the rejection
+    sb.table('atlas_communications').insert({
+        'pipeline_id': pipeline_id,
+        'channel': 'system',
+        'direction': 'outbound',
+        'subject': 'Proposal rejected by Ashish',
+        'content': 'Proposal rejected in human review and moved to closed_lost',
+        'sentiment': 'negative',
+    }).execute()
+
+    return {"status": "rejected", "pipeline_id": pipeline_id, "stage": "closed_lost"}
+
+
 @app.get("/api/pipeline/{pipeline_id}")
 async def get_pipeline_detail(pipeline_id: str):
     """Get pipeline entry detail with proposals and outreach"""
@@ -612,6 +726,38 @@ async def budget_check(request: Dict[str, Any]):
         raise HTTPException(status_code=403, detail=result['reason'])
 
     return result
+
+# ===========================================
+# Memory Endpoints
+# ===========================================
+
+@app.get("/api/memory/{agent_name}")
+async def get_agent_memory(agent_name: str, memory_type: Optional[str] = None, limit: int = 50):
+    """Get agent memory entries"""
+    from agents.memory import AgentMemory
+
+    memory = AgentMemory(agent_name, supabase)
+    if memory_type:
+        entries = memory.recall(memory_type, limit=limit)
+    else:
+        entries = memory.recall_all(limit=limit)
+    return {"agent": agent_name, "memories": entries, "count": len(entries)}
+
+
+@app.get("/api/memory/{agent_name}/performance")
+async def get_agent_performance(agent_name: str):
+    """Get agent performance insights (vertical conversion data)"""
+    from agents.memory import AgentMemory
+
+    memory = AgentMemory(agent_name, supabase)
+    insights = memory.get_performance_insights()
+    best_verticals = memory.get_best_verticals()
+    return {
+        "agent": agent_name,
+        "verticals": insights,
+        "best_verticals": best_verticals,
+    }
+
 
 # ===========================================
 # Content Creator Endpoints
@@ -741,6 +887,8 @@ if __name__ == "__main__":
     print("   * http://localhost:8000/api/content         - Pending content")
     print("   * http://localhost:8000/api/content/stats   - Content stats")
     print("   * http://localhost:8000/api/content/generate - Generate batch")
+    print("   * http://localhost:8000/api/memory/{agent}  - Agent memory")
+    print("   * http://localhost:8000/api/memory/{agent}/performance - Insights")
     print("   * http://localhost:8000/webhook/budget-check")
     print()
     print(" Schedule:")

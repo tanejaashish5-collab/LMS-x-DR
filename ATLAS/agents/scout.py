@@ -17,6 +17,9 @@ from supabase import create_client, Client
 import anthropic
 import requests
 
+from agents.memory import AgentMemory
+from utils.retry import retry_with_backoff
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -110,7 +113,35 @@ class SCOUTAgent:
         if not self.apify_token:
             logger.warning("APIFY_API_TOKEN not set - Reddit scraping will be unavailable")
 
+        # Initialize memory system
+        self.memory = AgentMemory('scout', self.supabase)
+
         logger.info("SCOUT initialized - Ready to discover opportunities")
+
+    # ===========================================
+    # Retry-Wrapped API Calls
+    # ===========================================
+
+    @retry_with_backoff(max_retries=3, base_delay=2.0, exceptions=(Exception,))
+    def _call_anthropic(self, model: str, max_tokens: int, messages: list):
+        """Wrapper for Anthropic API calls with retry."""
+        return self.client.messages.create(
+            model=model,
+            max_tokens=max_tokens,
+            messages=messages,
+        )
+
+    @retry_with_backoff(max_retries=3, base_delay=1.0, exceptions=(Exception,))
+    def _call_reddit_json(self, url: str, params: dict, headers: dict):
+        """Wrapper for Reddit JSON API calls with retry."""
+        response = requests.get(url, params=params, headers=headers, timeout=15)
+        response.raise_for_status()
+        return response.json()
+
+    @retry_with_backoff(max_retries=1, base_delay=0.5, exceptions=(Exception,))
+    def _call_supabase_insert(self, table: str, data: dict):
+        """Wrapper for Supabase inserts with light retry."""
+        return self.supabase.table(table).insert(data).execute()
 
     # ===========================================
     # Main Discovery Pipeline
@@ -146,9 +177,14 @@ class SCOUTAgent:
         raw_opportunities = self._scan_reddit(subreddits, max_posts)
         logger.info(f"Discovered {len(raw_opportunities)} raw opportunities")
 
+        # Step 1.5: Deduplicate against existing database entries
+        # This runs BEFORE Haiku filtering to save API costs
+        deduped_opportunities = self._deduplicate(raw_opportunities)
+        logger.info(f"After dedup: {len(deduped_opportunities)} new opportunities to filter")
+
         # Step 2: Filter with Claude Haiku
         filtered_opportunities = []
-        for opp in raw_opportunities:
+        for opp in deduped_opportunities:
             filter_result = self._filter_with_haiku(opp)
             if filter_result.passed:
                 filtered_opportunities.append((opp, filter_result))
@@ -182,14 +218,83 @@ class SCOUTAgent:
             scored=scored_count
         )
 
+        # Step 6: Record learnings to memory
+        self._record_discovery_memory(
+            subreddits=subreddits,
+            raw_count=len(raw_opportunities),
+            deduped_count=len(deduped_opportunities),
+            filtered_count=len(filtered_opportunities),
+            saved_count=saved_count,
+        )
+
         return {
             "status": "completed",
             "scanned": len(raw_opportunities),
+            "deduped": len(deduped_opportunities),
             "filtered": len(filtered_opportunities),
             "saved": saved_count,
             "scored": scored_count,
             "timestamp": datetime.now().isoformat()
         }
+
+    # ===========================================
+    # Deduplication
+    # ===========================================
+
+    def _deduplicate(self, opportunities: List[Opportunity]) -> List[Opportunity]:
+        """
+        Remove opportunities that already exist in the database.
+        Checks both source_url (exact) and title (fuzzy).
+
+        Args:
+            opportunities: Raw opportunities from scanning.
+
+        Returns:
+            List of genuinely new opportunities.
+        """
+        if not opportunities:
+            return []
+
+        try:
+            # Get existing source URLs from database
+            existing_urls_result = self.supabase.table(
+                'atlas_opportunities'
+            ).select('source_url').execute()
+            existing_urls = {
+                r['source_url'] for r in (existing_urls_result.data or [])
+            }
+
+            # Get existing titles for fuzzy dedup
+            existing_titles_result = self.supabase.table(
+                'atlas_opportunities'
+            ).select('title').execute()
+            existing_title_set = {
+                r['title'].lower().strip()
+                for r in (existing_titles_result.data or [])
+            }
+
+            new_opps = []
+            skipped_url = 0
+            skipped_title = 0
+
+            for opp in opportunities:
+                if opp.source_url in existing_urls:
+                    skipped_url += 1
+                    continue
+                if opp.title.lower().strip() in existing_title_set:
+                    skipped_title += 1
+                    continue
+                new_opps.append(opp)
+
+            logger.info(
+                f"SCOUT: Dedup filtered {len(opportunities)} -> {len(new_opps)} new "
+                f"(skipped {skipped_url} by URL, {skipped_title} by title)"
+            )
+            return new_opps
+
+        except Exception as e:
+            logger.error(f"SCOUT: Dedup check failed, passing all through: {e}")
+            return opportunities
 
     # ===========================================
     # Reddit Discovery via Public JSON API (free, no API key needed)
@@ -282,10 +387,7 @@ class SCOUTAgent:
                 "User-Agent": "ATLAS-Scout/2.0 (business opportunity discovery)"
             }
 
-            response = requests.get(url, params=params, headers=headers, timeout=15)
-            response.raise_for_status()
-
-            data = response.json()
+            data = self._call_reddit_json(url, params, headers)
             posts = data.get('data', {}).get('children', [])
             logger.info(f"r/{subreddit} '{search_term}': {len(posts)} posts found")
             return posts
@@ -336,11 +438,11 @@ CATEGORY: [automation_service/template_product/software_product/other]
 VERTICAL: [specific vertical or "Unknown"]
 REASON: [one sentence explanation]"""
 
-            # Call Claude Haiku
-            message = self.client.messages.create(
+            # Call Claude Haiku (with retry)
+            message = self._call_anthropic(
                 model="claude-haiku-4-5-20251001",
                 max_tokens=300,
-                messages=[{"role": "user", "content": prompt}]
+                messages=[{"role": "user", "content": prompt}],
             )
 
             response = message.content[0].text.strip()
@@ -426,21 +528,21 @@ PAIN_LEVEL: [0-10]
 OVERALL_SCORE: [0-100]
 REASONING: [2-3 sentences explaining the score and potential]"""
 
-            # Try Sonnet first, fallback to Haiku
+            # Try Sonnet first, fallback to Haiku (both with retry)
             model = "claude-sonnet-4-6"
             try:
-                message = self.client.messages.create(
+                message = self._call_anthropic(
                     model=model,
                     max_tokens=500,
-                    messages=[{"role": "user", "content": prompt}]
+                    messages=[{"role": "user", "content": prompt}],
                 )
             except Exception as sonnet_error:
                 logger.warning(f"Sonnet failed, using Haiku: {sonnet_error}")
                 model = "claude-haiku-4-5-20251001"
-                message = self.client.messages.create(
+                message = self._call_anthropic(
                     model=model,
                     max_tokens=500,
-                    messages=[{"role": "user", "content": prompt}]
+                    messages=[{"role": "user", "content": prompt}],
                 )
 
             response = message.content[0].text.strip()
@@ -528,7 +630,7 @@ REASONING: [2-3 sentences explaining the score and potential]"""
                 'discovered_at': datetime.now().isoformat()
             }
 
-            result = self.supabase.table('atlas_opportunities').insert(data).execute()
+            result = self._call_supabase_insert('atlas_opportunities', data)
 
             if result.data:
                 logger.info(f"Saved: {opportunity.title[:60]}...")
@@ -595,6 +697,67 @@ REASONING: [2-3 sentences explaining the score and potential]"""
             return False
 
     # ===========================================
+    # Memory & Learning
+    # ===========================================
+
+    def _record_discovery_memory(
+        self,
+        subreddits: List[str],
+        raw_count: int,
+        deduped_count: int,
+        filtered_count: int,
+        saved_count: int,
+    ) -> None:
+        """
+        Record discovery run results to agent memory for learning.
+
+        Tracks which subreddits and search terms yield results so future
+        runs can prioritize productive sources.
+
+        Args:
+            subreddits: Subreddits scanned this run.
+            raw_count: Total raw posts found.
+            deduped_count: Posts remaining after dedup.
+            filtered_count: Posts that passed Haiku filtering.
+            saved_count: Posts successfully saved.
+        """
+        try:
+            # Remember overall run yield
+            self.memory.remember(
+                'performance',
+                f'run_{datetime.now().strftime("%Y%m%d_%H%M")}',
+                {
+                    'subreddits': subreddits,
+                    'raw': raw_count,
+                    'deduped': deduped_count,
+                    'filtered': filtered_count,
+                    'saved': saved_count,
+                    'dedup_rate': round(
+                        1 - (deduped_count / raw_count), 2
+                    ) if raw_count > 0 else 0,
+                    'filter_rate': round(
+                        filtered_count / deduped_count, 2
+                    ) if deduped_count > 0 else 0,
+                },
+                confidence=0.9,
+            )
+
+            # Remember per-subreddit yield for prioritization
+            for subreddit in subreddits:
+                self.memory.remember(
+                    'insight',
+                    f'subreddit_{subreddit}_scanned',
+                    {
+                        'last_scanned': datetime.now().isoformat(),
+                        'run_saved': saved_count,
+                    },
+                    confidence=0.7,
+                )
+
+        except Exception as e:
+            logger.error(f"SCOUT: Failed to record memory: {e}")
+
+    # ===========================================
     # Logging & Analytics
     # ===========================================
 
@@ -614,15 +777,15 @@ REASONING: [2-3 sentences explaining the score and potential]"""
             else:  # sonnet
                 cost = (input_tokens * 0.003 + output_tokens * 0.015) / 1000
 
-            self.supabase.table('atlas_agent_logs').insert({
+            self._call_supabase_insert('atlas_agent_logs', {
                 'agent': 'scout',
                 'action': action,
                 'model_used': model,
                 'tokens_in': input_tokens,
                 'tokens_out': output_tokens,
                 'cost_usd': cost,
-                'status': status
-            }).execute()
+                'status': status,
+            })
 
         except Exception as e:
             logger.error(f"Failed to log API call: {e}")
@@ -636,13 +799,13 @@ REASONING: [2-3 sentences explaining the score and potential]"""
     ):
         """Log discovery run summary"""
         try:
-            self.supabase.table('atlas_agent_logs').insert({
+            self._call_supabase_insert('atlas_agent_logs', {
                 'agent': 'scout',
                 'action': 'discovery_run',
                 'input': f"Scanned: {scanned}, Filtered: {filtered}",
                 'output': f"Saved: {saved}, Scored: {scored}",
-                'status': 'success'
-            }).execute()
+                'status': 'success',
+            })
 
         except Exception as e:
             logger.error(f"Failed to log discovery run: {e}")

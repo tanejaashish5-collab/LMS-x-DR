@@ -25,6 +25,8 @@ from supabase import create_client, Client
 import anthropic
 
 from services.email_service import get_email_service
+from utils.retry import retry_with_backoff
+from ops.brand import BRAND
 
 # Configure logging
 logging.basicConfig(
@@ -160,6 +162,24 @@ class MERCURYAgent:
         self.email_service = get_email_service(self.supabase)
 
         logger.info("MERCURY initialized - Ready to distribute landing pages")
+
+    # ===========================================
+    # Retry-Wrapped API Calls
+    # ===========================================
+
+    @retry_with_backoff(max_retries=3, base_delay=2.0, exceptions=(Exception,))
+    def _call_anthropic(self, model: str, max_tokens: int, messages: list):
+        """Wrapper for Anthropic API calls with retry."""
+        return self.client.messages.create(
+            model=model,
+            max_tokens=max_tokens,
+            messages=messages,
+        )
+
+    @retry_with_backoff(max_retries=1, base_delay=0.5, exceptions=(Exception,))
+    def _call_supabase_insert(self, table: str, data: dict):
+        """Wrapper for Supabase inserts with light retry."""
+        return self.supabase.table(table).insert(data).execute()
 
     # ===========================================
     # Main Distribution Pipeline
@@ -356,11 +376,11 @@ class MERCURYAgent:
             # Build channel-specific prompt
             prompt = self._build_copy_prompt(request, channel)
 
-            # Call Claude Haiku (cheap & fast)
-            message = self.client.messages.create(
+            # Call Claude Haiku (cheap & fast, with retry)
+            message = self._call_anthropic(
                 model="claude-haiku-4-5-20251001",
                 max_tokens=1000,
-                messages=[{"role": "user", "content": prompt}]
+                messages=[{"role": "user", "content": prompt}],
             )
 
             # Parse response (expecting JSON)
@@ -426,7 +446,13 @@ class MERCURYAgent:
     ) -> str:
         """Build channel-specific prompt for copy generation"""
 
-        base_context = f"""You are a marketing copywriter. Write compelling copy for this business automation opportunity.
+        base_context = f"""You are a marketing copywriter for {BRAND.company_name}. Write compelling copy for this business automation opportunity.
+
+BRAND:
+- Company: {BRAND.company_name}
+- Founder: {BRAND.founder}
+- Value Prop: {BRAND.value_prop}
+- Tone: Direct, founder-voice, no corporate jargon. Australian English.
 
 OPPORTUNITY:
 - Title: {request.opportunity_title}
@@ -817,14 +843,14 @@ OUTPUT FORMAT (JSON):
                 'cost': cost
             }
 
-            self.supabase.table('atlas_agent_logs').insert({
+            self._call_supabase_insert('atlas_agent_logs', {
                 'agent': 'mercury',
                 'action': f'distribute_{channel}',
                 'input': f"Experiment: {experiment_id}",
                 'output': json.dumps(distribution_data),
                 'cost_usd': cost,
-                'status': 'success'
-            }).execute()
+                'status': 'success',
+            })
 
             logger.info(f"MERCURY: Tracked distribution to {channel} in database")
 
@@ -881,14 +907,14 @@ OUTPUT FORMAT (JSON):
                 'total_cost': total_cost
             }
 
-            self.supabase.table('atlas_agent_logs').insert({
+            self._call_supabase_insert('atlas_agent_logs', {
                 'agent': 'mercury',
                 'action': 'distribute_landing_page',
                 'input': f"Experiment: {experiment_id}",
                 'output': json.dumps(summary),
                 'cost_usd': total_cost,
-                'status': 'success' if len(channels_succeeded) > 0 else 'failed'
-            }).execute()
+                'status': 'success' if len(channels_succeeded) > 0 else 'failed',
+            })
 
         except Exception as e:
             logger.error(f"MERCURY: Failed to log distribution: {e}")
@@ -904,15 +930,15 @@ OUTPUT FORMAT (JSON):
     ):
         """Log API call to agent logs"""
         try:
-            self.supabase.table('atlas_agent_logs').insert({
+            self._call_supabase_insert('atlas_agent_logs', {
                 'agent': 'mercury',
                 'action': action,
                 'model_used': model,
                 'tokens_in': input_tokens,
                 'tokens_out': output_tokens,
                 'cost_usd': cost,
-                'status': status
-            }).execute()
+                'status': status,
+            })
 
         except Exception as e:
             logger.error(f"MERCURY: Failed to log API call: {e}")
