@@ -39,6 +39,21 @@ export default function BudgetPage() {
     return byAgent;
   }, [ledger]);
 
+  // Estimate real API cost — must be before early return (React hooks rule)
+  const realCostEstimate = useMemo(() => {
+    let estimate = 0;
+    for (const txn of ledger) {
+      if (txn.type !== "spend") continue;
+      if (txn.agent === "closer") estimate += 0.03;
+      else if (txn.agent === "content_creator") estimate += 0.01;
+      else if (txn.agent === "scout") estimate += 0.02;
+      else if (txn.agent === "forge") estimate += 0.10;
+      else if (txn.agent === "mercury") estimate += 0.01;
+      else estimate += 0.02;
+    }
+    return estimate;
+  }, [ledger]);
+
   if (loading || !summary) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -52,22 +67,6 @@ export default function BudgetPage() {
     : 0;
   const conservationMode = percentSpent >= 80;
   const monthlyLimit = 250;
-
-  // Estimate real API cost: CLOSER reserves $1/call but actual Anthropic cost is ~$0.03
-  // Scout/Forge/Mercury/Content use varying amounts but are also over-reserved
-  const realCostEstimate = useMemo(() => {
-    let estimate = 0;
-    for (const txn of ledger) {
-      if (txn.type !== "spend") continue;
-      if (txn.agent === "closer") estimate += 0.03;
-      else if (txn.agent === "content_creator") estimate += 0.01;
-      else if (txn.agent === "scout") estimate += 0.02;
-      else if (txn.agent === "forge") estimate += 0.10;
-      else if (txn.agent === "mercury") estimate += 0.01;
-      else estimate += 0.02; // default
-    }
-    return estimate;
-  }, [ledger]);
 
   return (
     <div>
